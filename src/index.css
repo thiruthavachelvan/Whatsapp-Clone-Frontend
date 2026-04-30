@@ -12,6 +12,10 @@ body {
   background-color: #d1d7db;
 }
 
+.dark body {
+  background-color: #0b141a;
+}
+
 /* Custom scrollbar for webkit */
 ::-webkit-scrollbar {
   width: 6px;

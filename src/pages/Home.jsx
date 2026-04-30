@@ -39,6 +39,15 @@ const Home = () => {
           senderId: data.senderId, 
           receiverId: currentUser._id 
         });
+      } else {
+        // Increment unread count for the sender in the sidebar
+        setUsers((prevUsers) => 
+          prevUsers.map(user => 
+            user._id === data.senderId 
+              ? { ...user, unreadCount: (user.unreadCount || 0) + 1 } 
+              : user
+          )
+        );
       }
     });
 
@@ -123,27 +132,33 @@ const Home = () => {
   };
 
   return (
-    <div className="h-screen w-full bg-whatsapp-gray flex overflow-hidden">
+    <div className="h-screen w-full bg-whatsapp-gray dark:bg-[#0b141a] flex overflow-hidden transition-colors duration-300">
       {/* Desktop Layout Background */}
-      <div className="absolute top-0 w-full h-32 bg-whatsapp-teal z-0 hidden md:block"></div>
+      <div className="absolute top-0 w-full h-32 bg-whatsapp-teal dark:bg-transparent z-0 hidden md:block"></div>
       
       <div className="z-10 w-full h-full md:p-5 flex justify-center">
-        <div className="w-full max-w-[1600px] h-full flex bg-white shadow-lg md:rounded-sm overflow-hidden">
+        <div className="w-full max-w-[1600px] h-full flex bg-white dark:bg-[#222d34] shadow-lg md:rounded-sm overflow-hidden">
           
           {/* Sidebar Area */}
-          <div className={`w-full md:w-[30%] lg:w-[35%] flex-shrink-0 flex flex-col border-r border-gray-200 ${selectedUser ? 'hidden md:flex' : 'flex'}`}>
+          <div className={`w-full md:w-[30%] lg:w-[35%] flex-shrink-0 flex flex-col border-r border-gray-200 dark:border-[#313d45] ${selectedUser ? 'hidden md:flex' : 'flex'}`}>
             <Sidebar 
               users={users} 
               activeUsers={activeUsers}
               currentUser={currentUser} 
               onLogout={logoutUser}
               selectedUser={selectedUser}
-              onSelectUser={setSelectedUser}
+              onSelectUser={(user) => {
+                setSelectedUser(user);
+                // Reset unread count locally
+                setUsers((prev) => 
+                  prev.map(u => u._id === user._id ? { ...u, unreadCount: 0 } : u)
+                );
+              }}
             />
           </div>
 
           {/* Main Chat Area */}
-          <div className={`w-full md:w-[70%] lg:w-[65%] flex flex-col bg-chat-pattern bg-[#efeae2] ${!selectedUser ? 'hidden md:flex' : 'flex'}`}>
+          <div className={`w-full md:w-[70%] lg:w-[65%] flex flex-col bg-chat-pattern bg-[#efeae2] dark:bg-[#0b141a] ${!selectedUser ? 'hidden md:flex' : 'flex'}`}>
             {selectedUser ? (
               <ChatWindow 
                 currentUser={currentUser}
@@ -154,14 +169,14 @@ const Home = () => {
                 loading={loading}
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-center p-4 bg-[#f0f2f5] border-b-[6px] border-whatsapp-green">
-                <div className="w-80 h-80 mb-8 bg-cover bg-center opacity-50" style={{ backgroundImage: "url('https://cdn-icons-png.flaticon.com/512/124/124034.png')" }}></div>
-                <h2 className="text-3xl font-light text-gray-700 mb-4">WhatsApp Web Clone</h2>
-                <p className="text-gray-500 max-w-md">
+              <div className="w-full h-full flex flex-col items-center justify-center text-center p-4 bg-[#f0f2f5] dark:bg-[#222d34] border-b-[6px] border-whatsapp-green">
+                <div className="w-80 h-80 mb-8 bg-cover bg-center opacity-50 dark:opacity-20" style={{ backgroundImage: "url('https://cdn-icons-png.flaticon.com/512/124/124034.png')" }}></div>
+                <h2 className="text-3xl font-light text-gray-700 dark:text-[#e9edef] mb-4">WhatsApp Web Clone</h2>
+                <p className="text-gray-500 dark:text-[#8696a0] max-w-md">
                   Send and receive messages without keeping your phone online.<br/>
                   Select a chat from the sidebar to start messaging.
                 </p>
-                <div className="mt-8 flex items-center justify-center text-gray-400 text-sm">
+                <div className="mt-8 flex items-center justify-center text-gray-400 dark:text-[#8696a0] text-sm">
                   <span className="mr-2">🔒</span> End-to-end encrypted clone project
                 </div>
               </div>
