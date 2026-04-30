@@ -9,8 +9,13 @@ const api = axios.create({
   }
 });
 
-export const login = async (username, email) => {
-  const response = await api.post('/users/login', { username, email });
+export const login = async (email) => {
+  const response = await api.post('/users/login', { email });
+  return response.data;
+};
+
+export const registerUser = async (username, email) => {
+  const response = await api.post('/users/register', { username, email });
   return response.data;
 };
 
@@ -26,6 +31,11 @@ export const fetchMessages = async (senderId, receiverId) => {
 
 export const sendMessage = async (messageData) => {
   const response = await api.post('/messages/send', messageData);
+  return response.data;
+};
+
+export const markMessagesAsRead = async (senderId, receiverId) => {
+  const response = await api.put('/messages/mark-read', { senderId, receiverId });
   return response.data;
 };
 

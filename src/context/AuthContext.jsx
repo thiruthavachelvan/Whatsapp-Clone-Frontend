@@ -7,7 +7,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const user = localStorage.getItem('whatsapp-clone-user');
+    const user = sessionStorage.getItem('whatsapp-clone-user');
     if (user) {
       setCurrentUser(JSON.parse(user));
     }
@@ -15,12 +15,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const loginUser = (userData) => {
-    localStorage.setItem('whatsapp-clone-user', JSON.stringify(userData));
+    sessionStorage.setItem('whatsapp-clone-user', JSON.stringify(userData));
     setCurrentUser(userData);
   };
 
   const logoutUser = () => {
-    localStorage.removeItem('whatsapp-clone-user');
+    sessionStorage.removeItem('whatsapp-clone-user');
     setCurrentUser(null);
   };
 

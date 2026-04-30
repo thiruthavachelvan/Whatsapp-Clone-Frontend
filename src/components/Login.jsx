@@ -1,9 +1,10 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { login } from '../services/api';
+import { login, registerUser } from '../services/api';
 import { MessageSquare } from 'lucide-react';
 
 const Login = () => {
+  const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,17 +15,27 @@ const Login = () => {
     e.preventDefault();
     setError('');
     
-    if (!username.trim()) {
-      setError('Username is required');
+    if (!email.trim()) {
+      setError('Email is required');
+      return;
+    }
+
+    if (!isLogin && !username.trim()) {
+      setError('Username is required to register');
       return;
     }
 
     try {
       setLoading(true);
-      const user = await login(username, email);
+      let user;
+      if (isLogin) {
+        user = await login(email);
+      } else {
+        user = await registerUser(username, email);
+      }
       loginUser(user);
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      setError(err.response?.data?.message || `${isLogin ? 'Login' : 'Registration'} failed. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -41,7 +52,7 @@ const Login = () => {
           </div>
           <h1 className="text-2xl font-semibold text-whatsapp-dark">WhatsApp Web Clone</h1>
           <p className="text-gray-500 mt-2 text-center text-sm">
-            Sign in to connect with friends
+            {isLogin ? 'Sign in to connect with friends' : 'Create an account to start chatting'}
           </p>
         </div>
         
@@ -52,30 +63,32 @@ const Login = () => {
             </div>
           )}
           
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2">
-              Username
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-whatsapp-teal focus:ring-1 focus:ring-whatsapp-teal transition-colors"
-              placeholder="Enter username"
-              autoComplete="username"
-            />
-          </div>
+          {!isLogin && (
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                Username
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-whatsapp-teal focus:ring-1 focus:ring-whatsapp-teal transition-colors"
+                placeholder="Choose a username"
+                autoComplete="username"
+              />
+            </div>
+          )}
           
           <div className="mb-6">
             <label className="block text-gray-700 text-sm font-bold mb-2">
-              Email <span className="text-gray-400 font-normal">(Optional)</span>
+              Email Address
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-whatsapp-teal focus:ring-1 focus:ring-whatsapp-teal transition-colors"
-              placeholder="Enter email address"
+              placeholder="Enter your email"
               autoComplete="email"
             />
           </div>
@@ -85,8 +98,24 @@ const Login = () => {
             disabled={loading}
             className={`w-full bg-whatsapp-green hover:bg-whatsapp-teal text-white font-bold py-3 px-4 rounded transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            {loading ? 'Connecting...' : 'Start Chatting'}
+            {loading ? 'Connecting...' : (isLogin ? 'Start Chatting' : 'Create Account')}
           </button>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              {isLogin ? "Don't have an account? " : "Already have an account? "}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  setError('');
+                }}
+                className="text-whatsapp-teal font-semibold hover:underline"
+              >
+                {isLogin ? 'Create one' : 'Sign in'}
+              </button>
+            </p>
+          </div>
         </form>
       </div>
     </div>

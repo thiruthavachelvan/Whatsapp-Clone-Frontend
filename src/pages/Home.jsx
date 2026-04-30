@@ -13,6 +13,12 @@ const Home = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const socketRef = useRef();
+  const selectedUserRef = useRef(null);
+
+  // Keep ref in sync with state for socket callbacks
+  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+  }, [selectedUser]);
 
   // Initialize socket connection
   useEffect(() => {
@@ -26,11 +32,20 @@ const Home = () => {
 
     socketRef.current.on('getMessage', (data) => {
       // If the message is from the currently selected user, add it to chat
-      setMessages((prev) => {
-        // We only append if the message belongs to our current active chat
-        // To handle this properly, we should actually dispatch an event or check state
-        return [...prev, data];
-      });
+      if (selectedUserRef.current && selectedUserRef.current._id === data.senderId) {
+        setMessages((prev) => [...prev, { ...data, isRead: true }]);
+        // Tell the sender we read it
+        socketRef.current.emit('markMessagesRead', { 
+          senderId: data.senderId, 
+          receiverId: currentUser._id 
+        });
+      }
+    });
+
+    socketRef.current.on('messagesRead', ({ receiverId }) => {
+      if (selectedUserRef.current && selectedUserRef.current._id === receiverId) {
+        setMessages((prev) => prev.map(m => ({ ...m, isRead: true })));
+      }
     });
 
     return () => {
@@ -60,6 +75,19 @@ const Home = () => {
       try {
         const data = await fetchMessages(currentUser._id, selectedUser._id);
         setMessages(data);
+
+        // Mark fetched unread messages as read
+        const hasUnread = data.some(m => m.senderId === selectedUser._id && !m.isRead);
+        if (hasUnread) {
+          import('../services/api').then(({ markMessagesAsRead }) => {
+            markMessagesAsRead(selectedUser._id, currentUser._id);
+          });
+          socketRef.current.emit('markMessagesRead', { 
+            senderId: selectedUser._id, 
+            receiverId: currentUser._id 
+          });
+        }
+
       } catch (error) {
         console.error("Failed to load messages", error);
       } finally {
