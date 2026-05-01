@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { AuthContext } from '../context/AuthContext';
-import { fetchUsers, fetchMessages, sendMessage as sendApiMessage } from '../services/api';
+import { fetchUsers, fetchMessages, sendMessage as sendApiMessage, markMessagesAsRead } from '../services/api';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
 
@@ -30,15 +30,14 @@ const Home = () => {
       setActiveUsers(users);
     });
 
-    socketRef.current.on('getMessage', (data) => {
+    socketRef.current.on('getMessage', async (data) => {
       // If the message is from the currently selected user, add it to chat
       if (selectedUserRef.current && selectedUserRef.current._id === data.senderId) {
         setMessages((prev) => [...prev, { ...data, isRead: true }]);
-        // Tell the sender we read it
-        socketRef.current.emit('markMessagesRead', { 
-          senderId: data.senderId, 
-          receiverId: currentUser._id 
-        });
+        
+        // Mark as read in DB immediately. 
+        // The backend now automatically emits 'messagesRead' to the sender.
+        await markMessagesAsRead(data.senderId, currentUser._id);
       } else {
         // Increment unread count for the sender in the sidebar
         setUsers((prevUsers) => 
@@ -82,20 +81,13 @@ const Home = () => {
       
       setLoading(true);
       try {
-        const data = await fetchMessages(currentUser._id, selectedUser._id);
+        const data = await fetchMessages(selectedUser._id, currentUser._id);
         setMessages(data);
 
-        // Mark fetched unread messages as read
-        const hasUnread = data.some(m => m.senderId === selectedUser._id && !m.isRead);
-        if (hasUnread) {
-          import('../services/api').then(({ markMessagesAsRead }) => {
-            markMessagesAsRead(selectedUser._id, currentUser._id);
-          });
-          socketRef.current.emit('markMessagesRead', { 
-            senderId: selectedUser._id, 
-            receiverId: currentUser._id 
-          });
-        }
+        // Clear unread count for this user locally
+        setUsers(prev => prev.map(u => 
+          u._id === selectedUser._id ? { ...u, unreadCount: 0 } : u
+        ));
 
       } catch (error) {
         console.error("Failed to load messages", error);
@@ -105,7 +97,7 @@ const Home = () => {
     };
 
     loadMessages();
-  }, [selectedUser, currentUser]);
+  }, [selectedUser?._id, currentUser?._id]);
 
   const handleSendMessage = async (text) => {
     if (!text.trim() || !selectedUser) return;
@@ -117,19 +109,40 @@ const Home = () => {
     };
 
     try {
-      // Optimistically add message
+      // 1. Optimistically add message to UI
       const tempMessage = { ...messageData, createdAt: new Date().toISOString() };
       setMessages((prev) => [...prev, tempMessage]);
 
-      // Emit socket event
-      socketRef.current.emit('sendMessage', messageData);
+      // 2. Save to db FIRST to avoid race condition with socket
+      const savedMessage = await sendApiMessage(messageData);
       
-      // Save to db
-      await sendApiMessage(messageData);
+      // 3. Emit socket event only AFTER message is in DB
+      socketRef.current.emit('sendMessage', {
+        ...messageData,
+        _id: savedMessage._id,
+        createdAt: savedMessage.createdAt
+      });
     } catch (error) {
       console.error("Failed to send message", error);
     }
   };
+
+  // Initialize selectedUser from localStorage only once when users load
+  const hasInitializedRef = useRef(false);
+  useEffect(() => {
+    if (!hasInitializedRef.current && users.length > 0) {
+      const savedUserId = localStorage.getItem('selectedChatId');
+      if (savedUserId) {
+        const user = users.find(u => u._id === savedUserId);
+        if (user) {
+          setSelectedUser(user);
+          hasInitializedRef.current = true;
+        }
+      } else {
+        hasInitializedRef.current = true;
+      }
+    }
+  }, [users]);
 
   return (
     <div className="h-screen w-full bg-whatsapp-gray dark:bg-[#0b141a] flex overflow-hidden transition-colors duration-300">
@@ -149,6 +162,7 @@ const Home = () => {
               selectedUser={selectedUser}
               onSelectUser={(user) => {
                 setSelectedUser(user);
+                localStorage.setItem('selectedChatId', user._id);
                 // Reset unread count locally
                 setUsers((prev) => 
                   prev.map(u => u._id === user._id ? { ...u, unreadCount: 0 } : u)
@@ -165,7 +179,10 @@ const Home = () => {
                 selectedUser={selectedUser} 
                 messages={messages} 
                 onSendMessage={handleSendMessage}
-                onBack={() => setSelectedUser(null)}
+                onBack={() => {
+                  setSelectedUser(null);
+                  localStorage.removeItem('selectedChatId');
+                }}
                 loading={loading}
               />
             ) : (
