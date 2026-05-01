@@ -106,6 +106,7 @@ const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack
                     showTail={showTail}
                     onToggleStar={onToggleStar}
                     showSenderName={isGroup && !isOwn}
+                    currentUser={currentUser}
                   />
                 );
               })

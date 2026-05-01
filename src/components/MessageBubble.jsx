@@ -1,12 +1,15 @@
 import React from 'react';
 import { format } from 'date-fns';
 
-const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName }) => {
+const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName, currentUser }) => {
   const timeString = message.createdAt 
     ? format(new Date(message.createdAt), 'h:mm a') 
     : format(new Date(), 'h:mm a');
 
   const senderName = message.senderId?.username || 'Unknown';
+  
+  // Check if current user has starred this message
+  const isStarred = message.starredBy?.includes(currentUser?._id);
 
   return (
     <div 
@@ -20,7 +23,7 @@ const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName 
             : 'bg-white dark:bg-[#202c33] text-[#111b21] dark:text-[#e9edef]'
         } ${showTail ? (isOwn ? 'rounded-tr-none mt-1.5' : 'rounded-tl-none mt-1.5') : ''}`}
       >
-        {/* Tail SVG ... */}
+        {/* Tail SVG */}
         {showTail && (
           <span 
             className={`absolute top-0 w-2 h-3.5 ${
@@ -52,7 +55,7 @@ const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName 
           <span dir="ltr" className="leading-[19px] whitespace-pre-wrap word-break">{message.text}</span>
           
           <div className="absolute bottom-[2px] right-1.5 flex items-center">
-            {message.isStarred && (
+            {isStarred && (
               <svg viewBox="0 0 24 24" width="12" height="12" className="text-gray-400 dark:text-[#8696a0] mr-1 fill-current">
                 <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
               </svg>

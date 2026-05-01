@@ -232,12 +232,9 @@ const Home = () => {
   };
 
   const handleToggleStar = async (message) => {
-    if (!message._id) return;
     try {
-      const updatedMessage = await toggleStarMessage(message._id);
-      setMessages((prev) => prev.map(m => 
-        m._id === updatedMessage._id ? { ...m, isStarred: updatedMessage.isStarred } : m
-      ));
+      const updatedMessage = await toggleStarMessage(message._id, currentUser._id);
+      setMessages((prev) => prev.map(m => m._id === message._id ? updatedMessage : m));
     } catch (error) {
       console.error("Failed to toggle star", error);
     }

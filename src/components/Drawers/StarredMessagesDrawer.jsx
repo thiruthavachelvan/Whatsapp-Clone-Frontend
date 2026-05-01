@@ -8,7 +8,7 @@ const StarredMessagesDrawer = ({ isOpen, onClose, currentUser }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && currentUser?._id) {
       const loadStarred = async () => {
         setLoading(true);
         try {
@@ -43,18 +43,21 @@ const StarredMessagesDrawer = ({ isOpen, onClose, currentUser }) => {
         ) : (
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {messages.map((msg) => {
-              const isOwn = msg.senderId._id === currentUser._id;
-              const otherUser = isOwn ? msg.receiverId : msg.senderId;
+              const msgSenderId = msg.senderId?._id || msg.senderId;
+              const isOwn = msgSenderId === currentUser._id;
+              
+              const senderName = msg.senderId?.username || 'Unknown';
+              const receiverName = msg.receiverId?.username || 'User';
               
               return (
                 <div key={msg._id} className="bg-white dark:bg-[#222d34] mb-1 px-4 py-3 border-b border-gray-100 dark:border-[#2a3942] hover:bg-[#f5f6f6] dark:hover:bg-[#182229] transition-colors">
                    <div className="flex justify-between items-start mb-1">
                       <span className="text-xs font-semibold text-whatsapp-teal truncate max-w-[150px]">
-                        {isOwn ? 'You' : msg.senderId.username} 
-                        {msg.groupId ? ` @ ${msg.groupId.name}` : ` → ${isOwn ? (msg.receiverId?.username || 'User') : 'You'}`}
+                        {isOwn ? 'You' : senderName} 
+                        {msg.groupId ? ` @ ${msg.groupId.name || 'Group'}` : ` → ${isOwn ? receiverName : 'You'}`}
                       </span>
                       <span className="text-[10px] text-gray-400">
-                        {format(new Date(msg.createdAt), 'MMM d, h:mm a')}
+                        {msg.createdAt ? format(new Date(msg.createdAt), 'MMM d, h:mm a') : 'Recently'}
                       </span>
                    </div>
                    <p className="text-sm text-gray-800 dark:text-[#e9edef] line-clamp-3">{msg.text}</p>

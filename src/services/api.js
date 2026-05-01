@@ -49,8 +49,8 @@ export const updateProfile = async (userId, profileData) => {
   return response.data;
 };
 
-export const toggleStarMessage = async (messageId) => {
-  const response = await api.put(`/messages/star/${messageId}`);
+export const toggleStarMessage = async (messageId, userId) => {
+  const response = await axios.put(`${API_URL}/messages/star/${messageId}`, { userId });
   return response.data;
 };
 
