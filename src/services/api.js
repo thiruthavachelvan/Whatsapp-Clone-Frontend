@@ -108,4 +108,14 @@ export const searchInChat = async (senderId, targetId, query, isGroup) => {
   return response.data;
 };
 
+export const deleteMessage = async (messageId, userId, type) => {
+  const response = await api.put(`/messages/delete/${messageId}`, { userId, type });
+  return response.data;
+};
+
+export const pinMessage = async (messageId, userId, duration) => {
+  const response = await api.put(`/messages/pin/${messageId}`, { userId, duration });
+  return response.data;
+};
+
 export default api;

@@ -13,11 +13,12 @@ import {
   Ban, 
   ThumbsDown, 
   Trash,
-  Info
+  Info,
+  CheckSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, onBlockUser, onReportUser, onMuteChat, onOpenSearch, messages = [] }) => {
+const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, onBlockUser, onReportUser, onMuteChat, onOpenSearch, onSelectMessages, messages = [] }) => {
   const [showMuteModal, setShowMuteModal] = useState(false);
   const isGroup = chat.type === 'group';
 
@@ -193,6 +194,14 @@ const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, on
             <Star size={20} className="text-[#8696a0] mr-6" />
             <span className="flex-1 text-gray-900 dark:text-[#e9edef]">Starred messages</span>
             <ChevronRight size={18} className="text-[#8696a0]" />
+          </div>
+
+          <div 
+            onClick={onSelectMessages}
+            className="flex items-center px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#182229] transition-colors border-t border-gray-100 dark:border-white/5"
+          >
+            <CheckSquare size={20} className="text-[#8696a0] mr-6" />
+            <span className="flex-1 text-gray-900 dark:text-[#e9edef]">Select messages</span>
           </div>
           
           <div 

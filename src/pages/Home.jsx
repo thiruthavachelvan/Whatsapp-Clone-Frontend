@@ -13,7 +13,9 @@ import {
   reportUser, 
   clearChat,
   searchMessages,
-  searchInChat
+  searchInChat,
+  deleteMessage as deleteApiMessage,
+  pinMessage as pinApiMessage
 } from '../services/api';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
@@ -31,6 +33,7 @@ const Home = () => {
   const [showContactInfo, setShowContactInfo] = useState(false);
   const [showSearchInChat, setShowSearchInChat] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+  const [forceSelectionMode, setForceSelectionMode] = useState(0);
   
   const socketRef = useRef();
   const selectedChatRef = useRef(null);
@@ -122,6 +125,12 @@ const Home = () => {
       }
     });
 
+    socketRef.current.on('messageDeleted', ({ messageId }) => {
+      setMessages((prev) => prev.map(m => 
+        m._id === messageId ? { ...m, isDeletedForEveryone: true } : m
+      ));
+    });
+
     socketRef.current.on('userUpdated', (updatedUser) => {
       setUsers((prev) => prev.map(u => 
         u._id === updatedUser._id ? { ...u, ...updatedUser } : u
@@ -204,50 +213,54 @@ const Home = () => {
     loadMessages();
   }, [selectedChat?._id, currentUser?._id]);
 
-  const handleSendMessage = async (text) => {
-    if (!text.trim() || !selectedChat) return;
+  const handleSendMessage = async (text, targetChat = null) => {
+    const chat = targetChat || selectedChat;
+    if (!text.trim() || !chat) return;
 
-    const isGroup = selectedChat.type === 'group';
+    const isGroup = chat.type === 'group';
     const messageData = {
       senderId: currentUser._id,
       text: text.trim(),
-      [isGroup ? 'groupId' : 'receiverId']: selectedChat._id
+      [isGroup ? 'groupId' : 'receiverId']: chat._id
     };
 
     try {
-      // 1. Optimistically add message to UI
+      // 1. Optimistically add message to UI (only if forwarding to active chat)
       const tempMessage = { 
         ...messageData, 
         isRead: false,
         isStarred: false,
         createdAt: new Date().toISOString() 
       };
-      setMessages((prev) => [...prev, tempMessage]);
+      if (!targetChat) {
+        setMessages((prev) => [...prev, tempMessage]);
+      }
 
       // 2. Save to db
       const savedMessage = await sendApiMessage(messageData);
       
-      // If we are sending a message to someone not in our current users list (could be previously hidden)
-      // we need to refresh the list to show them in the sidebar
-      if (!isGroup && !users.some(u => u._id === selectedChat._id)) {
+      // If sending a message to someone not in our current users list
+      if (!isGroup && !users.some(u => u._id === chat._id)) {
         const updatedUsers = await fetchUsers(currentUser._id);
         setUsers(updatedUsers);
       }
       
-      // 3. Update the last message
-      setMessages((prev) => prev.map(m => 
-        (m.text === tempMessage.text && !m._id) ? { 
-          ...savedMessage, 
-          isRead: false, 
-          isStarred: false,
-          senderId: {
-            _id: currentUser._id,
-            username: currentUser.username,
-            avatarColor: currentUser.avatarColor,
-            avatarLetter: currentUser.avatarLetter
-          }
-        } : m
-      ));
+      // 3. Update message in state (only for current chat)
+      if (!targetChat) {
+        setMessages((prev) => prev.map(m => 
+          (m.text === tempMessage.text && !m._id) ? { 
+            ...savedMessage, 
+            isRead: false, 
+            isStarred: false,
+            senderId: {
+              _id: currentUser._id,
+              username: currentUser.username,
+              avatarColor: currentUser.avatarColor,
+              avatarLetter: currentUser.avatarLetter
+            }
+          } : m
+        ));
+      }
 
       // 4. Emit socket event
       socketRef.current.emit('sendMessage', {
@@ -265,10 +278,11 @@ const Home = () => {
     }
   };
 
-  const handleToggleStar = async (message) => {
+  const handleToggleStar = async (messageOrId) => {
     try {
-      const updatedMessage = await toggleStarMessage(message._id, currentUser._id);
-      setMessages((prev) => prev.map(m => m._id === message._id ? updatedMessage : m));
+      const messageId = typeof messageOrId === 'string' ? messageOrId : messageOrId._id;
+      const updatedMessage = await toggleStarMessage(messageId, currentUser._id);
+      setMessages((prev) => prev.map(m => m._id === messageId ? updatedMessage : m));
     } catch (error) {
       console.error("Failed to toggle star", error);
     }
@@ -358,10 +372,51 @@ const Home = () => {
 
   const handleSelectMessage = (messageId) => {
     setHighlightedMessageId(messageId);
-    // Remove highlight after 3 seconds
+    setShowSearchInChat(false); // close search drawer
     setTimeout(() => {
       setHighlightedMessageId(null);
     }, 3000);
+  };
+
+  const handleDeleteMessage = async (messageId, type) => {
+    try {
+      await deleteApiMessage(messageId, currentUser._id, type);
+      setMessages(prev => prev.map(m => {
+        if (m._id !== messageId) return m;
+        if (type === 'everyone') return { ...m, isDeletedForEveryone: true };
+        return { ...m, deletedBy: [...(m.deletedBy || []), currentUser._id] };
+      }));
+      if (type === 'everyone' && socketRef.current) {
+        socketRef.current.emit('deleteMessage', { messageId, chatId: selectedChat._id });
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+    }
+  };
+
+  const handlePinMessage = async (messageId, duration) => {
+    try {
+      const data = await pinApiMessage(messageId, currentUser._id, duration);
+      setMessages(prev => prev.map(m => {
+        if (m._id === messageId) return data;
+        if (m.pinnedBy) return { ...m, pinnedBy: null, pinExpiry: null };
+        return m;
+      }));
+    } catch (error) {
+      console.error("Pin error:", error);
+    }
+  };
+
+  const handleUnpinMessage = async (messageId) => {
+    try {
+      // Reuse pin endpoint with 0-hour duration to effectively unpin (set expiry to now)
+      await pinApiMessage(messageId, currentUser._id, '0');
+      setMessages(prev => prev.map(m => 
+        m._id === messageId ? { ...m, pinnedBy: null, pinExpiry: null } : m
+      ));
+    } catch (error) {
+      console.error("Unpin error:", error);
+    }
   };
 
   return (
@@ -422,7 +477,18 @@ const Home = () => {
                   localStorage.removeItem('selectedChatType');
                 }}
                 loading={loading}
+                onClearChat={handleClearChat}
+                onDeleteChat={handleDeleteFullChat}
+                onBlockUser={handleBlock}
+                onReportUser={handleReport}
+                onMuteChat={handleMute}
+                onDeleteMessage={handleDeleteMessage}
+                onPinMessage={handlePinMessage}
+                onUnpinMessage={handleUnpinMessage}
+                users={users}
+                groups={groups}
                 highlightedMessageId={highlightedMessageId}
+                forceSelectionMode={forceSelectionMode}
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-center p-4 bg-[#f0f2f5] dark:bg-[#222d34] border-b-[6px] border-whatsapp-green">
@@ -451,6 +517,10 @@ const Home = () => {
               onBlockUser={handleBlock}
               onMuteChat={handleMute}
               onReportUser={handleReport}
+              onSelectMessages={() => {
+                setShowContactInfo(false);
+                setForceSelectionMode(prev => prev + 1);
+              }}
               onOpenSearch={() => {
                 setShowContactInfo(false);
                 setShowSearchInChat(true);
