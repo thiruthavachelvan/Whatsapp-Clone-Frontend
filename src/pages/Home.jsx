@@ -9,13 +9,16 @@ import {
   toggleStarMessage,
   fetchUserGroups,
   blockUser,
-  muteChat,
-  reportUser,
-  clearChat
+  muteChat, 
+  reportUser, 
+  clearChat,
+  searchMessages,
+  searchInChat
 } from '../services/api';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
 import ContactInfo from '../components/ContactInfo';
+import SearchInChatDrawer from '../components/Drawers/SearchInChatDrawer';
 
 const Home = () => {
   const { currentUser, logoutUser, updateUser } = useContext(AuthContext);
@@ -26,6 +29,8 @@ const Home = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showContactInfo, setShowContactInfo] = useState(false);
+  const [showSearchInChat, setShowSearchInChat] = useState(false);
+  const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   
   const socketRef = useRef();
   const selectedChatRef = useRef(null);
@@ -351,6 +356,14 @@ const Home = () => {
     }
   };
 
+  const handleSelectMessage = (messageId) => {
+    setHighlightedMessageId(messageId);
+    // Remove highlight after 3 seconds
+    setTimeout(() => {
+      setHighlightedMessageId(null);
+    }, 3000);
+  };
+
   return (
     <div className="h-screen w-full bg-whatsapp-gray dark:bg-[#0b141a] flex overflow-hidden transition-colors duration-300">
       {/* Desktop Layout Background ... */}
@@ -380,11 +393,12 @@ const Home = () => {
               }}
               onGroupCreated={handleGroupCreated}
               socket={socketRef.current}
+              onSelectMessage={handleSelectMessage}
             />
           </div>
 
           {/* Main Chat Area */}
-          <div className={`flex flex-col bg-chat-pattern bg-[#efeae2] dark:bg-[#0b141a] transition-all duration-300 ${!selectedChat ? 'hidden md:flex flex-1' : 'flex'} ${showContactInfo ? 'w-full md:w-[40%] lg:w-[35%]' : 'w-full md:w-[70%] lg:w-[65%]'}`}>
+          <div className={`flex flex-col bg-chat-pattern bg-[#efeae2] dark:bg-[#0b141a] transition-all duration-300 ${!selectedChat ? 'hidden md:flex flex-1' : 'flex'} ${ (showContactInfo || showSearchInChat) ? 'w-full md:w-[40%] lg:w-[35%]' : 'w-full md:w-[70%] lg:w-[65%]'}`}>
             {selectedChat ? (
               <ChatWindow 
                 currentUser={currentUser}
@@ -392,14 +406,23 @@ const Home = () => {
                 messages={messages} 
                 onSendMessage={handleSendMessage}
                 onToggleStar={handleToggleStar}
-                onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
+                onShowContactInfo={() => {
+                  setShowSearchInChat(false);
+                  setShowContactInfo(!showContactInfo);
+                }}
+                onShowSearch={() => {
+                  setShowContactInfo(false);
+                  setShowSearchInChat(!showSearchInChat);
+                }}
                 onBack={() => {
                   setSelectedChat(null);
                   setShowContactInfo(false);
+                  setShowSearchInChat(false);
                   localStorage.removeItem('selectedChatId');
                   localStorage.removeItem('selectedChatType');
                 }}
                 loading={loading}
+                highlightedMessageId={highlightedMessageId}
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-center p-4 bg-[#f0f2f5] dark:bg-[#222d34] border-b-[6px] border-whatsapp-green">
@@ -428,6 +451,21 @@ const Home = () => {
               onBlockUser={handleBlock}
               onMuteChat={handleMute}
               onReportUser={handleReport}
+              onOpenSearch={() => {
+                setShowContactInfo(false);
+                setShowSearchInChat(true);
+              }}
+            />
+          )}
+
+          {/* Search In Chat Sidebar */}
+          {selectedChat && showSearchInChat && (
+            <SearchInChatDrawer 
+              isOpen={showSearchInChat}
+              onClose={() => setShowSearchInChat(false)}
+              chat={selectedChat}
+              currentUser={currentUser}
+              onSelectMessage={handleSelectMessage}
             />
           )}
 

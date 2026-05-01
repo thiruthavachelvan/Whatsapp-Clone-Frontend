@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, onBlockUser, onReportUser, onMuteChat, messages = [] }) => {
+const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, onBlockUser, onReportUser, onMuteChat, onOpenSearch, messages = [] }) => {
   const [showMuteModal, setShowMuteModal] = useState(false);
   const isGroup = chat.type === 'group';
 
@@ -139,7 +139,10 @@ const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, on
               </div>
               <span className="text-xs text-whatsapp-teal">Video</span>
             </div>
-            <div className="flex flex-col items-center space-y-2 cursor-pointer group">
+            <div 
+              onClick={onOpenSearch}
+              className="flex flex-col items-center space-y-2 cursor-pointer group"
+            >
               <div className="w-10 h-10 border border-gray-200 dark:border-white/10 rounded-full flex items-center justify-center text-whatsapp-teal group-hover:bg-[#f0f2f5] dark:group-hover:bg-[#202c33] transition-colors">
                 <Search size={20} />
               </div>

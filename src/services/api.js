@@ -94,4 +94,18 @@ export const deleteChat = async (userId, targetId) => {
   return response.data;
 };
 
+export const searchMessages = async (userId, query) => {
+  const response = await api.get(`/messages/search/global`, {
+    params: { userId, query }
+  });
+  return response.data;
+};
+
+export const searchInChat = async (senderId, targetId, query, isGroup) => {
+  const response = await api.get(`/messages/search/${senderId}/${targetId}`, {
+    params: { query, isGroup }
+  });
+  return response.data;
+};
+
 export default api;

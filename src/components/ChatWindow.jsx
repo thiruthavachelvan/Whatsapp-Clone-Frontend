@@ -2,17 +2,24 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Search, MoreVertical, Paperclip, Smile, Mic, Send, ArrowLeft, Users, BellOff } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 
-const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack, loading, onToggleStar, onShowContactInfo }) => {
+const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack, loading, onToggleStar, onShowContactInfo, onShowSearch, highlightedMessageId }) => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef(null);
+  const messageRefs = useRef({});
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!highlightedMessageId) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (highlightedMessageId && messageRefs.current[highlightedMessageId]) {
+      messageRefs.current[highlightedMessageId].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      scrollToBottom();
+    }
+  }, [messages, highlightedMessageId]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -68,7 +75,10 @@ const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack
         </div>
         
         <div className="flex space-x-3 text-gray-500 dark:text-[#aebac1] pl-2">
-          <button className="hover:bg-gray-200 dark:hover:bg-[#374248] p-2 rounded-full transition-colors hidden sm:block">
+          <button 
+            onClick={onShowSearch}
+            className="hover:bg-gray-200 dark:hover:bg-[#374248] p-2 rounded-full transition-colors hidden sm:block"
+          >
             <Search size={20} />
           </button>
           <button className="hover:bg-gray-200 dark:hover:bg-[#374248] p-2 rounded-full transition-colors">
@@ -126,15 +136,20 @@ const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack
                 }
                 
                 return (
-                  <MessageBubble 
-                    key={message._id || index} 
-                    message={message} 
-                    isOwn={isOwn} 
-                    showTail={showTail}
-                    onToggleStar={onToggleStar}
-                    showSenderName={isGroup && !isOwn}
-                    currentUser={currentUser}
-                  />
+                  <div 
+                    key={message._id || index}
+                    ref={el => messageRefs.current[message._id] = el}
+                    className={`transition-colors duration-1000 ${highlightedMessageId === message._id ? 'bg-whatsapp-green/20 dark:bg-whatsapp-green/10 rounded-lg' : ''}`}
+                  >
+                    <MessageBubble 
+                      message={message} 
+                      isOwn={isOwn} 
+                      showTail={showTail}
+                      onToggleStar={onToggleStar}
+                      showSenderName={isGroup && !isOwn}
+                      currentUser={currentUser}
+                    />
+                  </div>
                 );
               })
             )}

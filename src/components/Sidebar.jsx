@@ -1,5 +1,6 @@
-import React, { useState, useContext } from 'react';
-import { Search, MoreVertical, MessageSquare, LogOut, Sun, Moon, User as UserIcon, Star, Settings, Users, BellOff } from 'lucide-react';
+import React, { useState, useContext, useEffect } from 'react';
+import { Search, MoreVertical, MessageSquare, LogOut, Sun, Moon, User as UserIcon, Star, Settings, Users, BellOff, X } from 'lucide-react';
+import { searchMessages } from '../services/api';
 import { format } from 'date-fns';
 import { ThemeContext } from '../context/ThemeContext';
 import { AuthContext } from '../context/AuthContext';
@@ -9,12 +10,34 @@ import StarredMessagesDrawer from './Drawers/StarredMessagesDrawer';
 import NewGroupDrawer from './Drawers/NewGroupDrawer';
 import SettingsDrawer from './Drawers/SettingsDrawer';
 
-const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedChat, onSelectChat, onGroupCreated, socket }) => {
+const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedChat, onSelectChat, onGroupCreated, socket, onSelectMessage }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeDrawer, setActiveDrawer] = useState(null); // 'profile', 'new-chat', 'starred', 'new-group', 'settings', or null
   const [showMenu, setShowMenu] = useState(false);
   const { darkMode, toggleTheme } = useContext(ThemeContext);
   const { updateUser } = useContext(AuthContext);
+  const [messageResults, setMessageResults] = useState([]);
+  const [isSearchingMessages, setIsSearchingMessages] = useState(false);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (searchTerm.trim().length > 1) {
+        setIsSearchingMessages(true);
+        try {
+          const results = await searchMessages(currentUser._id, searchTerm);
+          setMessageResults(results);
+        } catch (error) {
+          console.error("Search error:", error);
+        } finally {
+          setIsSearchingMessages(false);
+        }
+      } else {
+        setMessageResults([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, currentUser._id]);
 
   // Combine and sort conversations
   const conversations = [
@@ -139,7 +162,7 @@ const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedCh
         </div>
       </div>
 
-      {/* Search ... */}
+      {/* Search */}
       <div className="bg-white dark:bg-[#111b21] p-2 border-b border-gray-200 dark:border-white/5">
         <div className="flex items-center bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg px-3 py-1.5">
           <Search size={18} className="text-gray-500 dark:text-[#aebac1] mr-3" />
@@ -150,11 +173,60 @@ const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedCh
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm('')} className="text-gray-500 hover:text-gray-700">
+              <X size={16} />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Contact List */}
       <div className="flex-1 overflow-y-auto bg-white dark:bg-[#111b21] custom-scrollbar">
+        {searchTerm.trim().length > 0 && messageResults.length > 0 && (
+          <div className="py-2 border-b border-gray-100 dark:border-white/5 bg-[#f0f2f5]/30 dark:bg-[#202c33]/30">
+            <h3 className="px-4 py-2 text-xs font-semibold text-whatsapp-teal uppercase tracking-wider">Messages</h3>
+            {messageResults.map(msg => {
+              const targetChat = msg.groupId ? { ...msg.groupId, type: 'group' } : 
+                                (msg.senderId._id === currentUser._id ? { ...msg.receiverId, type: 'user' } : { ...msg.senderId, type: 'user' });
+              
+              if (!targetChat._id) return null; // Safety check
+
+              return (
+                <div 
+                  key={msg._id}
+                  onClick={() => {
+                    onSelectChat(targetChat);
+                    if (onSelectMessage) onSelectMessage(msg._id);
+                    setSearchTerm('');
+                  }}
+                  className="px-4 py-3 hover:bg-[#f5f6f6] dark:hover:bg-[#2a3942] cursor-pointer group"
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-medium text-sm dark:text-[#e9edef] group-hover:text-whatsapp-teal transition-colors">
+                      {targetChat.username || targetChat.name}
+                    </span>
+                    <span className="text-[10px] text-gray-400">{format(new Date(msg.createdAt), 'dd/MM/yyyy')}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-[#8696a0] truncate italic">
+                    {msg.text.split(new RegExp(`(${searchTerm})`, 'gi')).map((part, i) => 
+                      part.toLowerCase() === searchTerm.toLowerCase() 
+                        ? <span key={i} className="text-whatsapp-green font-bold bg-whatsapp-green/10 px-0.5 rounded">{part}</span> 
+                        : part
+                    )}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        
+        {searchTerm.trim().length > 0 && messageResults.length === 0 && !isSearchingMessages && conversations.length === 0 && (
+          <div className="p-8 text-center text-sm text-gray-500 flex flex-col items-center">
+             <Search size={40} className="mb-4 opacity-20" />
+             <p>No results found for "{searchTerm}"</p>
+          </div>
+        )}
         {conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-gray-400 text-sm px-6 text-center">
             <p>No chats found</p>
