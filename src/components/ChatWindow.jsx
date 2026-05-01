@@ -60,9 +60,12 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, onBack
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 md:px-[6%] lg:px-[8%] bg-chat-pattern dark:opacity-[0.06] w-full relative custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-4 py-4 md:px-[6%] lg:px-[8%] w-full relative custom-scrollbar">
+        {/* Chat Background Pattern with separate opacity */}
+        <div className="absolute inset-0 bg-chat-pattern opacity-[0.06] dark:opacity-[0.04] pointer-events-none"></div>
+        
         {loading ? (
-          <div className="flex justify-center items-center h-full">
+          <div className="flex justify-center items-center h-full relative z-10">
             <div className="bg-white/80 dark:bg-[#202c33]/80 px-4 py-2 rounded-full text-sm shadow-sm text-gray-500 dark:text-[#aebac1]">
               Loading chat history...
             </div>

@@ -1,30 +1,37 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
 
 export const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-  const [darkMode, setDarkMode] = useState(
-    localStorage.getItem('whatsapp-theme') === 'dark'
-  );
+  // Initialize state from localStorage or default to dark
+  const [darkMode, setDarkMode] = useState(() => {
+    const stored = localStorage.getItem('whatsapp-theme');
+    const initialMode = stored !== null ? stored === 'dark' : true;
+    console.log('[Theme] Initial mode:', initialMode ? 'dark' : 'light');
+    return initialMode;
+  });
 
+  // Apply theme class to document element
   useEffect(() => {
-    const html = window.document.documentElement;
-    if (darkMode === true) {
+    const html = document.documentElement;
+    if (darkMode) {
       html.classList.add('dark');
       localStorage.setItem('whatsapp-theme', 'dark');
+      console.log('[Theme] Applied dark mode');
     } else {
       html.classList.remove('dark');
       localStorage.setItem('whatsapp-theme', 'light');
-    }
-    // Also update body just in case
-    if (darkMode === true) {
-      document.body.classList.add('dark');
-    } else {
-      document.body.classList.remove('dark');
+      console.log('[Theme] Applied light mode');
     }
   }, [darkMode]);
 
-  const toggleTheme = () => setDarkMode(!darkMode);
+  const toggleTheme = useCallback(() => {
+    setDarkMode(prev => {
+      const newMode = !prev;
+      console.log('[Theme] Toggling to:', newMode ? 'dark' : 'light');
+      return newMode;
+    });
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ darkMode, toggleTheme }}>
