@@ -56,6 +56,18 @@ const Home = () => {
       }
     });
 
+    // Listen for profile updates from other users
+    socketRef.current.on('userUpdated', (updatedUser) => {
+      setUsers((prev) => prev.map(u => 
+        u._id === updatedUser._id ? { ...u, ...updatedUser } : u
+      ));
+      
+      // Also update selectedUser if it's the one that was updated
+      if (selectedUserRef.current && selectedUserRef.current._id === updatedUser._id) {
+        setSelectedUser(prev => ({ ...prev, ...updatedUser }));
+      }
+    });
+
     return () => {
       socketRef.current.disconnect();
     };
@@ -177,6 +189,7 @@ const Home = () => {
                   prev.map(u => u._id === user._id ? { ...u, unreadCount: 0 } : u)
                 );
               }}
+              socket={socketRef.current}
             />
           </div>
 

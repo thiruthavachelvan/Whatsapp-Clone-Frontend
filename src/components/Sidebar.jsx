@@ -6,7 +6,7 @@ import { AuthContext } from '../context/AuthContext';
 import ProfileDrawer from './Drawers/ProfileDrawer';
 import NewChatDrawer from './Drawers/NewChatDrawer';
 
-const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSelectUser }) => {
+const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSelectUser, socket }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeDrawer, setActiveDrawer] = useState(null); // 'profile', 'new-chat', or null
   const [showMenu, setShowMenu] = useState(false);
@@ -25,6 +25,7 @@ const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSe
         onClose={() => setActiveDrawer(null)} 
         currentUser={currentUser}
         onUpdateUser={updateUser}
+        socket={socket}
       />
       <NewChatDrawer 
         isOpen={activeDrawer === 'new-chat'} 
@@ -59,6 +60,13 @@ const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSe
             title="New Chat"
           >
             <MessageSquare size={20} />
+          </button>
+          <button 
+            onClick={onLogout} 
+            className="hover:bg-gray-200 dark:hover:bg-[#374248] p-2 rounded-full transition-colors"
+            title="Log out"
+          >
+            <LogOut size={20} />
           </button>
           
           <div className="relative">
