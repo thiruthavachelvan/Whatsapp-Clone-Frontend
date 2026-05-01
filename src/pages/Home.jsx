@@ -1,24 +1,33 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { AuthContext } from '../context/AuthContext';
-import { fetchUsers, fetchMessages, sendMessage as sendApiMessage, markMessagesAsRead } from '../services/api';
+import { 
+  fetchUsers, 
+  fetchMessages, 
+  sendMessage as sendApiMessage, 
+  markMessagesAsRead,
+  toggleStarMessage,
+  fetchUserGroups
+} from '../services/api';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
 
 const Home = () => {
   const { currentUser, logoutUser } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [activeUsers, setActiveUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedChat, setSelectedChat] = useState(null); // Unified state for user or group
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  
   const socketRef = useRef();
-  const selectedUserRef = useRef(null);
+  const selectedChatRef = useRef(null);
 
   // Keep ref in sync with state for socket callbacks
   useEffect(() => {
-    selectedUserRef.current = selectedUser;
-  }, [selectedUser]);
+    selectedChatRef.current = selectedChat;
+  }, [selectedChat]);
 
   // Initialize socket connection
   useEffect(() => {
@@ -31,40 +40,71 @@ const Home = () => {
     });
 
     socketRef.current.on('getMessage', async (data) => {
-      // If the message is from the currently selected user, add it to chat
-      if (selectedUserRef.current && selectedUserRef.current._id === data.senderId) {
-        setMessages((prev) => [...prev, { ...data, isRead: true }]);
-        
-        // Mark as read in DB immediately. 
-        // The backend now automatically emits 'messagesRead' to the sender.
-        await markMessagesAsRead(data.senderId, currentUser._id);
+      const incomingSenderId = data.senderId?._id || data.senderId;
+      console.log("Incoming message from:", incomingSenderId, "to group:", data.groupId);
+      
+      const isFromSelected = selectedChatRef.current && (
+        // For Private Chat: Must have NO groupId and sender must match
+        (!data.groupId && selectedChatRef.current.type === 'user' && selectedChatRef.current._id === incomingSenderId) ||
+        // For Group Chat: Must HAVE groupId and groupId must match
+        (data.groupId && selectedChatRef.current.type === 'group' && selectedChatRef.current._id === data.groupId)
+      );
+
+      // Normalize message for the UI
+      const normalizedMessage = {
+        ...data,
+        isRead: true,
+        senderId: data.senderInfo ? { ...data.senderInfo, _id: incomingSenderId } : incomingSenderId
+      };
+
+      if (isFromSelected) {
+        console.log("Adding message to active chat window");
+        setMessages((prev) => [...prev, normalizedMessage]);
+        if (!data.groupId) {
+          await markMessagesAsRead(incomingSenderId, currentUser._id);
+        }
       } else {
-        // Increment unread count for the sender in the sidebar
-        setUsers((prevUsers) => 
-          prevUsers.map(user => 
-            user._id === data.senderId 
-              ? { ...user, unreadCount: (user.unreadCount || 0) + 1 } 
-              : user
-          )
-        );
+        console.log("Target chat not active, showing notification in sidebar");
+        // Notification for sidebar
+        if (data.groupId) {
+          setGroups(prev => prev.map(g => 
+            g._id === data.groupId ? { ...g, unreadCount: (g.unreadCount || 0) + 1 } : g
+          ));
+        } else {
+          setUsers((prevUsers) => 
+            prevUsers.map(user => 
+              user._id === incomingSenderId 
+                ? { ...user, unreadCount: (user.unreadCount || 0) + 1 } 
+                : user
+            )
+          );
+        }
+      }
+    });
+
+    socketRef.current.on('groupCreated', (newGroup) => {
+      console.log("New group created:", newGroup);
+      const isMember = newGroup.members.some(m => (m._id || m) === currentUser._id);
+      if (isMember) {
+        setGroups(prev => [newGroup, ...prev]);
       }
     });
 
     socketRef.current.on('messagesRead', ({ receiverId }) => {
-      if (selectedUserRef.current && selectedUserRef.current._id === receiverId) {
+      if (selectedChatRef.current && 
+          selectedChatRef.current.type === 'user' && 
+          selectedChatRef.current._id === receiverId) {
         setMessages((prev) => prev.map(m => ({ ...m, isRead: true })));
       }
     });
 
-    // Listen for profile updates from other users
     socketRef.current.on('userUpdated', (updatedUser) => {
       setUsers((prev) => prev.map(u => 
         u._id === updatedUser._id ? { ...u, ...updatedUser } : u
       ));
       
-      // Also update selectedUser if it's the one that was updated
-      if (selectedUserRef.current && selectedUserRef.current._id === updatedUser._id) {
-        setSelectedUser(prev => ({ ...prev, ...updatedUser }));
+      if (selectedChatRef.current && selectedChatRef.current._id === updatedUser._id) {
+        setSelectedChat(prev => ({ ...prev, ...updatedUser }));
       }
     });
 
@@ -73,34 +113,60 @@ const Home = () => {
     };
   }, [currentUser]);
 
-  // Load all users
+  // Load all data
   useEffect(() => {
-    const loadUsers = async () => {
+    const fetchData = async () => {
+      if (!currentUser) return;
+      setLoading(true);
       try {
-        const data = await fetchUsers(currentUser._id);
-        setUsers(data);
+        const [usersData, groupsData] = await Promise.all([
+          fetchUsers(currentUser._id),
+          fetchUserGroups(currentUser._id)
+        ]);
+        setUsers(usersData);
+        setGroups(groupsData);
+
+        const savedChatId = localStorage.getItem('selectedChatId');
+        const savedType = localStorage.getItem('selectedChatType');
+        
+        if (savedChatId) {
+          if (savedType === 'group') {
+            const group = groupsData.find(g => g._id === savedChatId);
+            if (group) setSelectedChat({ ...group, type: 'group' });
+          } else {
+            const user = usersData.find(u => u._id === savedChatId);
+            if (user) setSelectedChat({ ...user, type: 'user' });
+          }
+        }
       } catch (error) {
-        console.error("Failed to load users", error);
+        console.error("Failed to load data", error);
+      } finally {
+        setLoading(false);
       }
     };
-    loadUsers();
+    fetchData();
   }, [currentUser]);
 
-  // Load messages when a user is selected
+  // Load messages when a chat is selected
   useEffect(() => {
     const loadMessages = async () => {
-      if (!selectedUser) return;
+      if (!selectedChat) return;
       
       setLoading(true);
       try {
-        const data = await fetchMessages(selectedUser._id, currentUser._id);
+        const isGroup = selectedChat.type === 'group';
+        const data = await fetchMessages(currentUser._id, selectedChat._id, isGroup);
         setMessages(data);
 
-        // Clear unread count for this user locally
-        setUsers(prev => prev.map(u => 
-          u._id === selectedUser._id ? { ...u, unreadCount: 0 } : u
-        ));
-
+        if (isGroup) {
+          setGroups(prev => prev.map(g => 
+            g._id === selectedChat._id ? { ...g, unreadCount: 0 } : g
+          ));
+        } else {
+          setUsers(prev => prev.map(u => 
+            u._id === selectedChat._id ? { ...u, unreadCount: 0 } : u
+          ));
+        }
       } catch (error) {
         console.error("Failed to load messages", error);
       } finally {
@@ -109,15 +175,16 @@ const Home = () => {
     };
 
     loadMessages();
-  }, [selectedUser?._id, currentUser?._id]);
+  }, [selectedChat?._id, currentUser?._id]);
 
   const handleSendMessage = async (text) => {
-    if (!text.trim() || !selectedUser) return;
+    if (!text.trim() || !selectedChat) return;
 
+    const isGroup = selectedChat.type === 'group';
     const messageData = {
       senderId: currentUser._id,
-      receiverId: selectedUser._id,
-      text: text.trim()
+      text: text.trim(),
+      [isGroup ? 'groupId' : 'receiverId']: selectedChat._id
     };
 
     try {
@@ -125,6 +192,7 @@ const Home = () => {
       const tempMessage = { 
         ...messageData, 
         isRead: false,
+        isStarred: false,
         createdAt: new Date().toISOString() 
       };
       setMessages((prev) => [...prev, tempMessage]);
@@ -132,78 +200,104 @@ const Home = () => {
       // 2. Save to db
       const savedMessage = await sendApiMessage(messageData);
       
-      // 3. Update the last message with the real one from DB (to get correct ID/status)
+      // 3. Update the last message
       setMessages((prev) => prev.map(m => 
-        (m.text === tempMessage.text && !m._id) ? { ...savedMessage, isRead: false } : m
+        (m.text === tempMessage.text && !m._id) ? { 
+          ...savedMessage, 
+          isRead: false, 
+          isStarred: false,
+          senderId: {
+            _id: currentUser._id,
+            username: currentUser.username,
+            avatarColor: currentUser.avatarColor,
+            avatarLetter: currentUser.avatarLetter
+          }
+        } : m
       ));
 
       // 4. Emit socket event
       socketRef.current.emit('sendMessage', {
         ...messageData,
         _id: savedMessage._id,
-        createdAt: savedMessage.createdAt
+        createdAt: savedMessage.createdAt,
+        senderInfo: {
+          username: currentUser.username,
+          avatarColor: currentUser.avatarColor,
+          avatarLetter: currentUser.avatarLetter
+        }
       });
     } catch (error) {
       console.error("Failed to send message", error);
     }
   };
 
-  // Initialize selectedUser from localStorage only once when users load
-  const hasInitializedRef = useRef(false);
-  useEffect(() => {
-    if (!hasInitializedRef.current && users.length > 0) {
-      const savedUserId = localStorage.getItem('selectedChatId');
-      if (savedUserId) {
-        const user = users.find(u => u._id === savedUserId);
-        if (user) {
-          setSelectedUser(user);
-          hasInitializedRef.current = true;
-        }
-      } else {
-        hasInitializedRef.current = true;
-      }
+  const handleToggleStar = async (message) => {
+    if (!message._id) return;
+    try {
+      const updatedMessage = await toggleStarMessage(message._id);
+      setMessages((prev) => prev.map(m => 
+        m._id === updatedMessage._id ? { ...m, isStarred: updatedMessage.isStarred } : m
+      ));
+    } catch (error) {
+      console.error("Failed to toggle star", error);
     }
-  }, [users]);
+  };
+
+  const handleGroupCreated = (newGroup) => {
+    setGroups(prev => [newGroup, ...prev]);
+    setSelectedChat({ ...newGroup, type: 'group' });
+    localStorage.setItem('selectedChatId', newGroup._id);
+    localStorage.setItem('selectedChatType', 'group');
+    
+    // Notify other members via socket
+    socketRef.current.emit('createGroup', newGroup);
+  };
 
   return (
     <div className="h-screen w-full bg-whatsapp-gray dark:bg-[#0b141a] flex overflow-hidden transition-colors duration-300">
-      {/* Desktop Layout Background */}
+      {/* Desktop Layout Background ... */}
       <div className="absolute top-0 w-full h-32 bg-whatsapp-teal dark:bg-transparent z-0 hidden md:block"></div>
       
       <div className="z-10 w-full h-full md:p-5 flex justify-center">
         <div className="w-full max-w-[1600px] h-full flex bg-white dark:bg-[#222d34] shadow-lg md:rounded-sm overflow-hidden">
           
           {/* Sidebar Area */}
-          <div className={`w-full md:w-[30%] lg:w-[35%] flex-shrink-0 flex flex-col border-r border-gray-200 dark:border-[#313d45] ${selectedUser ? 'hidden md:flex' : 'flex'}`}>
+          <div className={`w-full md:w-[30%] lg:w-[35%] flex-shrink-0 flex flex-col border-r border-gray-200 dark:border-[#313d45] ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
             <Sidebar 
               users={users} 
+              groups={groups}
               activeUsers={activeUsers}
               currentUser={currentUser} 
               onLogout={logoutUser}
-              selectedUser={selectedUser}
-              onSelectUser={(user) => {
-                setSelectedUser(user);
-                localStorage.setItem('selectedChatId', user._id);
-                // Reset unread count locally
-                setUsers((prev) => 
-                  prev.map(u => u._id === user._id ? { ...u, unreadCount: 0 } : u)
-                );
+              selectedChat={selectedChat}
+              onSelectChat={(chat) => {
+                setSelectedChat(chat);
+                localStorage.setItem('selectedChatId', chat._id);
+                localStorage.setItem('selectedChatType', chat.type);
+                if (chat.type === 'group') {
+                  setGroups(prev => prev.map(g => g._id === chat._id ? { ...g, unreadCount: 0 } : g));
+                } else {
+                  setUsers(prev => prev.map(u => u._id === chat._id ? { ...u, unreadCount: 0 } : u));
+                }
               }}
+              onGroupCreated={handleGroupCreated}
               socket={socketRef.current}
             />
           </div>
 
           {/* Main Chat Area */}
-          <div className={`w-full md:w-[70%] lg:w-[65%] flex flex-col bg-chat-pattern bg-[#efeae2] dark:bg-[#0b141a] ${!selectedUser ? 'hidden md:flex' : 'flex'}`}>
-            {selectedUser ? (
+          <div className={`w-full md:w-[70%] lg:w-[65%] flex flex-col bg-chat-pattern bg-[#efeae2] dark:bg-[#0b141a] ${!selectedChat ? 'hidden md:flex' : 'flex'}`}>
+            {selectedChat ? (
               <ChatWindow 
                 currentUser={currentUser}
-                selectedUser={selectedUser} 
+                selectedChat={selectedChat} 
                 messages={messages} 
                 onSendMessage={handleSendMessage}
+                onToggleStar={handleToggleStar}
                 onBack={() => {
-                  setSelectedUser(null);
+                  setSelectedChat(null);
                   localStorage.removeItem('selectedChatId');
+                  localStorage.removeItem('selectedChatType');
                 }}
                 loading={loading}
               />

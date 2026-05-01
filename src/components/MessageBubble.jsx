@@ -1,13 +1,18 @@
 import React from 'react';
 import { format } from 'date-fns';
 
-const MessageBubble = ({ message, isOwn, showTail }) => {
+const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName }) => {
   const timeString = message.createdAt 
     ? format(new Date(message.createdAt), 'h:mm a') 
     : format(new Date(), 'h:mm a');
 
+  const senderName = message.senderId?.username || 'Unknown';
+
   return (
-    <div className={`flex flex-col mb-[2px] relative w-full ${isOwn ? 'items-end' : 'items-start'}`}>
+    <div 
+      className={`flex flex-col mb-[2px] relative w-full ${isOwn ? 'items-end' : 'items-start'}`}
+      onDoubleClick={() => onToggleStar && onToggleStar(message)}
+    >
       <div 
         className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-sm sm:text-[14.2px] break-words shadow-sm flex relative transition-theme ${
           isOwn 
@@ -15,7 +20,7 @@ const MessageBubble = ({ message, isOwn, showTail }) => {
             : 'bg-white dark:bg-[#202c33] text-[#111b21] dark:text-[#e9edef]'
         } ${showTail ? (isOwn ? 'rounded-tr-none mt-1.5' : 'rounded-tl-none mt-1.5') : ''}`}
       >
-        {/* Tail SVG */}
+        {/* Tail SVG ... */}
         {showTail && (
           <span 
             className={`absolute top-0 w-2 h-3.5 ${
@@ -39,10 +44,20 @@ const MessageBubble = ({ message, isOwn, showTail }) => {
         )}
         
         <div className="flex flex-col w-full pr-10 min-w-0">
+          {showSenderName && (
+            <span className="text-[12.5px] font-bold mb-0.5 text-[#e542a3] dark:text-[#ff78c3]">
+              {senderName}
+            </span>
+          )}
           <span dir="ltr" className="leading-[19px] whitespace-pre-wrap word-break">{message.text}</span>
           
           <div className="absolute bottom-[2px] right-1.5 flex items-center">
-            <span className="text-[10px] tracking-tight whitespace-nowrap ml-2 opacity-60">
+            {message.isStarred && (
+              <svg viewBox="0 0 24 24" width="12" height="12" className="text-gray-400 dark:text-[#8696a0] mr-1 fill-current">
+                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+              </svg>
+            )}
+            <span className="text-[10px] tracking-tight whitespace-nowrap opacity-60">
               {timeString}
             </span>
             {isOwn && (

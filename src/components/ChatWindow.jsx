@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, MoreVertical, Paperclip, Smile, Mic, Send, ArrowLeft } from 'lucide-react';
+import { Search, MoreVertical, Paperclip, Smile, Mic, Send, ArrowLeft, Users } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 
-const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, onBack, loading }) => {
+const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack, loading, onToggleStar }) => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -22,6 +22,8 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, onBack
     }
   };
 
+  const isGroup = selectedChat.type === 'group';
+
   return (
     <div className="flex flex-col h-full bg-[#efeae2] dark:bg-[#0b141a] relative w-full transition-colors duration-300">
       {/* Header */}
@@ -37,15 +39,19 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, onBack
           <div className="relative flex-shrink-0 cursor-pointer">
             <div 
               className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
-              style={{ backgroundColor: selectedUser.avatarColor || '#9ca3af' }}
+              style={{ backgroundColor: selectedChat.avatarColor || (isGroup ? '#00a884' : '#9ca3af') }}
             >
-              {selectedUser.avatarLetter || selectedUser.username.charAt(0).toUpperCase()}
+              {isGroup ? <Users size={20} /> : (selectedChat.avatarLetter || selectedChat.username.charAt(0).toUpperCase())}
             </div>
           </div>
           
           <div className="ml-4 cursor-pointer truncate">
-            <h2 className="font-normal text-gray-900 dark:text-[#e9edef] text-base">{selectedUser.username}</h2>
-            <p className="text-xs text-gray-500 dark:text-[#8696a0] truncate">click here for contact info</p>
+            <h2 className="font-normal text-gray-900 dark:text-[#e9edef] text-base">{isGroup ? selectedChat.name : selectedChat.username}</h2>
+            <p className="text-xs text-gray-500 dark:text-[#8696a0] truncate">
+              {isGroup 
+                ? selectedChat.members.map(m => m.username).join(', ') 
+                : 'click here for contact info'}
+            </p>
           </div>
         </div>
         
@@ -80,11 +86,16 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, onBack
               </div>
             ) : (
               messages.map((message, index) => {
-                const isOwn = message.senderId === currentUser._id;
+                const msgSenderId = message.senderId?._id || message.senderId;
+                const isOwn = msgSenderId === currentUser._id;
+                
                 // Add tail to message bubble if it's the first in a group
                 let showTail = true;
-                if (index > 0 && messages[index - 1].senderId === message.senderId) {
-                  showTail = false;
+                if (index > 0) {
+                  const prevSenderId = messages[index - 1].senderId?._id || messages[index - 1].senderId;
+                  if (prevSenderId === msgSenderId) {
+                    showTail = false;
+                  }
                 }
                 
                 return (
@@ -93,6 +104,8 @@ const ChatWindow = ({ currentUser, selectedUser, messages, onSendMessage, onBack
                     message={message} 
                     isOwn={isOwn} 
                     showTail={showTail}
+                    onToggleStar={onToggleStar}
+                    showSenderName={isGroup && !isOwn}
                   />
                 );
               })

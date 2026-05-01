@@ -5,17 +5,24 @@ import { ThemeContext } from '../context/ThemeContext';
 import { AuthContext } from '../context/AuthContext';
 import ProfileDrawer from './Drawers/ProfileDrawer';
 import NewChatDrawer from './Drawers/NewChatDrawer';
+import StarredMessagesDrawer from './Drawers/StarredMessagesDrawer';
+import NewGroupDrawer from './Drawers/NewGroupDrawer';
+import SettingsDrawer from './Drawers/SettingsDrawer';
 
-const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSelectUser, socket }) => {
+const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedChat, onSelectChat, onGroupCreated, socket }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeDrawer, setActiveDrawer] = useState(null); // 'profile', 'new-chat', or null
+  const [activeDrawer, setActiveDrawer] = useState(null); // 'profile', 'new-chat', 'starred', 'new-group', 'settings', or null
   const [showMenu, setShowMenu] = useState(false);
   const { darkMode, toggleTheme } = useContext(ThemeContext);
   const { updateUser } = useContext(AuthContext);
 
-  const filteredUsers = users.filter(user => 
-    user.username.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Combine and sort conversations
+  const conversations = [
+    ...users.map(u => ({ ...u, type: 'user' })),
+    ...groups.map(g => ({ ...g, type: 'group' }))
+  ].filter(c => 
+    (c.username || c.name).toLowerCase().includes(searchTerm.toLowerCase())
+  ).sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#111b21] transition-colors duration-300 relative overflow-hidden">
@@ -31,11 +38,29 @@ const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSe
         isOpen={activeDrawer === 'new-chat'} 
         onClose={() => setActiveDrawer(null)} 
         currentUser={currentUser}
-        onSelectUser={onSelectUser}
+        onSelectUser={(user) => onSelectChat({ ...user, type: 'user' })}
+      />
+      <StarredMessagesDrawer 
+        isOpen={activeDrawer === 'starred'} 
+        onClose={() => setActiveDrawer(null)} 
+        currentUser={currentUser}
+      />
+      <NewGroupDrawer 
+        isOpen={activeDrawer === 'new-group'} 
+        onClose={() => setActiveDrawer(null)} 
+        currentUser={currentUser}
+        users={users}
+        onGroupCreated={onGroupCreated}
+      />
+      <SettingsDrawer 
+        isOpen={activeDrawer === 'settings'} 
+        onClose={() => setActiveDrawer(null)} 
+        currentUser={currentUser}
       />
 
-      {/* Header */}
+      {/* Header ... */}
       <div className="h-16 bg-[#f0f2f5] dark:bg-[#202c33] px-4 py-2 flex justify-between items-center border-b border-gray-200 dark:border-white/5">
+        {/* Profile ... */}
         <div className="flex items-center">
           <div 
             onClick={() => setActiveDrawer('profile')}
@@ -82,13 +107,22 @@ const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSe
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)}></div>
                 <div className="absolute right-0 top-10 w-48 bg-white dark:bg-[#233138] shadow-lg rounded-sm py-2 z-50 animate-in fade-in zoom-in duration-200">
-                  <button className="w-full text-left px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] text-gray-700 dark:text-[#d1d7db] text-sm flex items-center space-x-3">
+                  <button 
+                    onClick={() => { setShowMenu(false); setActiveDrawer('new-group'); }}
+                    className="w-full text-left px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] text-gray-700 dark:text-[#d1d7db] text-sm flex items-center space-x-3"
+                  >
                     <Users size={18} /> <span>New group</span>
                   </button>
-                  <button className="w-full text-left px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] text-gray-700 dark:text-[#d1d7db] text-sm flex items-center space-x-3">
+                  <button 
+                    onClick={() => { setShowMenu(false); setActiveDrawer('starred'); }}
+                    className="w-full text-left px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] text-gray-700 dark:text-[#d1d7db] text-sm flex items-center space-x-3"
+                  >
                     <Star size={18} /> <span>Starred messages</span>
                   </button>
-                  <button className="w-full text-left px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] text-gray-700 dark:text-[#d1d7db] text-sm flex items-center space-x-3">
+                  <button 
+                    onClick={() => { setShowMenu(false); setActiveDrawer('settings'); }}
+                    className="w-full text-left px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] text-gray-700 dark:text-[#d1d7db] text-sm flex items-center space-x-3"
+                  >
                     <Settings size={18} /> <span>Settings</span>
                   </button>
                   <hr className="my-1 border-gray-100 dark:border-white/5" />
@@ -105,7 +139,7 @@ const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSe
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search ... */}
       <div className="bg-white dark:bg-[#111b21] p-2 border-b border-gray-200 dark:border-white/5">
         <div className="flex items-center bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg px-3 py-1.5">
           <Search size={18} className="text-gray-500 dark:text-[#aebac1] mr-3" />
@@ -121,25 +155,20 @@ const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSe
 
       {/* Contact List */}
       <div className="flex-1 overflow-y-auto bg-white dark:bg-[#111b21] custom-scrollbar">
-        {filteredUsers.length === 0 ? (
+        {conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-gray-400 text-sm px-6 text-center">
-            <p>No contacts found</p>
-            <button 
-              onClick={() => setActiveDrawer('new-chat')}
-              className="mt-4 text-whatsapp-teal hover:underline font-medium"
-            >
-              Start a new chat
-            </button>
+            <p>No chats found</p>
           </div>
         ) : (
-          filteredUsers.map(user => {
-            const isSelected = selectedUser && selectedUser._id === user._id;
-            const isOnline = activeUsers.includes(user._id);
+          conversations.map(chat => {
+            const isSelected = selectedChat && selectedChat._id === chat._id;
+            const isGroup = chat.type === 'group';
+            const isOnline = !isGroup && activeUsers.includes(chat._id);
             
             return (
               <div 
-                key={user._id}
-                onClick={() => onSelectUser(user)}
+                key={chat._id}
+                onClick={() => onSelectChat(chat)}
                 className={`flex items-center px-3 py-3 cursor-pointer border-b border-gray-100 dark:border-[#222d34] hover:bg-[#f5f6f6] dark:hover:bg-[#2a3942] transition-colors
                   ${isSelected ? 'bg-[#f0f2f5] dark:bg-[#2a3942]' : ''}
                 `}
@@ -147,9 +176,9 @@ const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSe
                 <div className="relative flex-shrink-0">
                   <div 
                     className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-semibold shadow-sm"
-                    style={{ backgroundColor: user.avatarColor || '#9ca3af' }}
+                    style={{ backgroundColor: chat.avatarColor || (isGroup ? '#00a884' : '#9ca3af') }}
                   >
-                    {user.avatarLetter || user.username.charAt(0).toUpperCase()}
+                    {isGroup ? <Users size={24} /> : (chat.avatarLetter || chat.username.charAt(0).toUpperCase())}
                   </div>
                   {isOnline && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-[#111b21] rounded-full shadow-sm"></div>
@@ -158,18 +187,18 @@ const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSe
                 
                 <div className="ml-4 flex-1 overflow-hidden">
                   <div className="flex justify-between items-baseline mb-1">
-                    <h3 className="font-normal text-gray-900 dark:text-[#e9edef] truncate text-base">{user.username}</h3>
+                    <h3 className="font-normal text-gray-900 dark:text-[#e9edef] truncate text-base">{isGroup ? chat.name : chat.username}</h3>
                     <span className="text-xs text-gray-400 dark:text-[#8696a0]">
-                      {user.createdAt ? format(new Date(user.createdAt), 'h:mm a') : ''}
+                      {chat.updatedAt ? format(new Date(chat.updatedAt), 'h:mm a') : ''}
                     </span>
                   </div>
                   <div className="text-sm text-gray-500 dark:text-[#8696a0] truncate flex items-center justify-between">
                     <span className={isOnline ? "text-whatsapp-teal" : ""}>
-                      {user.about || (isOnline ? 'Online' : 'Tap to chat')}
+                      {isGroup ? `${chat.members.length} members` : (chat.about || (isOnline ? 'Online' : 'Tap to chat'))}
                     </span>
-                    {user.unreadCount > 0 && (
+                    {(chat.unreadCount > 0) && (
                       <span className="bg-whatsapp-green text-white text-[10px] font-bold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5 shadow-sm ml-2">
-                        {user.unreadCount}
+                        {chat.unreadCount}
                       </span>
                     )}
                   </div>

@@ -24,8 +24,8 @@ export const fetchUsers = async (userId) => {
   return response.data;
 };
 
-export const fetchMessages = async (senderId, receiverId) => {
-  const response = await api.get(`/messages/${senderId}/${receiverId}`);
+export const fetchMessages = async (senderId, receiverId, isGroup = false) => {
+  const response = await api.get(`/messages/${senderId}/${receiverId}?isGroup=${isGroup}`);
   return response.data;
 };
 
@@ -46,6 +46,26 @@ export const searchUsers = async (query, currentUserId) => {
 
 export const updateProfile = async (userId, profileData) => {
   const response = await api.put(`/users/update/${userId}`, profileData);
+  return response.data;
+};
+
+export const toggleStarMessage = async (messageId) => {
+  const response = await api.put(`/messages/star/${messageId}`);
+  return response.data;
+};
+
+export const fetchStarredMessages = async (userId) => {
+  const response = await api.get(`/messages/starred/${userId}`);
+  return response.data;
+};
+
+export const createGroup = async (groupData) => {
+  const response = await api.post('/groups', groupData);
+  return response.data;
+};
+
+export const fetchUserGroups = async (userId) => {
+  const response = await api.get(`/groups/${userId}`);
   return response.data;
 };
 
