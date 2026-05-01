@@ -20,10 +20,23 @@ import {
   Ban, 
   MinusCircle, 
   Trash,
-  ChevronDown
+  ChevronDown,
+  FileText,
+  Image as ImageIcon,
+  Camera,
+  Headphones,
+  User,
+  BarChart2,
+  Calendar,
+  Sticker,
+  Play,
+  Square,
+  Plus
 } from 'lucide-react';
+import EmojiPicker from 'emoji-picker-react';
 import MessageBubble from './MessageBubble';
 import ForwardMessageModal from './Modals/ForwardMessageModal';
+import MediaPreviewModal from './Modals/MediaPreviewModal';
 
 const ChatWindow = ({ 
   currentUser, 
@@ -58,6 +71,20 @@ const ChatWindow = ({
   const [pinDuration, setPinDuration] = useState('168'); // default 7 days
   const [showPinMenu, setShowPinMenu] = useState(false);
   
+  // New interaction states
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [selectedAttachmentType, setSelectedAttachmentType] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  
+  // Audio recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const timerRef = useRef(null);
+  const fileInputRef = useRef(null);
+  
   const messagesEndRef = useRef(null);
   const messageRefs = useRef({});
 
@@ -85,11 +112,122 @@ const ChatWindow = ({
   }, [messages, highlightedMessageId]);
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (inputText.trim()) {
       onSendMessage(inputText);
       setInputText('');
+      setShowEmojiPicker(false);
     }
+  };
+
+  // --- Audio Recording Logic ---
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      // We attach the cancel flag directly to the recorder to check it in onstop
+      mediaRecorder.isCancelled = false;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop());
+        
+        if (mediaRecorder.isCancelled || audioChunksRef.current.length === 0) {
+          return; // Cancelled
+        }
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          onSendMessage('', null, {
+            type: 'audio',
+            mediaUrl: reader.result,
+            mediaName: 'Voice Note',
+            mediaSize: audioBlob.size
+          });
+        };
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      timerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      alert('Could not access microphone. Please check permissions.');
+    }
+  };
+
+  const stopRecording = (cancel = false) => {
+    if (mediaRecorderRef.current && isRecording) {
+      if (cancel) {
+        mediaRecorderRef.current.isCancelled = true;
+      }
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(timerRef.current);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // --- Attachment Logic ---
+  const handleAttachmentClick = (type) => {
+    setSelectedAttachmentType(type);
+    fileInputRef.current?.click();
+    setShowAttachmentMenu(false);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Convert file to Base64 (Using Base64 to bypass cloud storage for this clone)
+    if (file.size > 16 * 1024 * 1024) {
+      alert("File is too large! Maximum allowed is 16MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onloadend = () => {
+      const base64Url = reader.result;
+      
+      // Enforce document type if the user specifically clicked the Document button
+      let type = selectedAttachmentType === 'Document' ? 'document' : 'document';
+      
+      if (selectedAttachmentType !== 'Document') {
+        if (file.type.startsWith('image/')) type = 'image';
+        else if (file.type.startsWith('video/')) type = 'video';
+        else if (file.type.startsWith('audio/')) type = 'audio';
+      }
+
+      const mediaPayload = {
+        type,
+        mediaUrl: base64Url,
+        mediaName: file.name,
+        mediaSize: file.size
+      };
+
+      if (type === 'image' || type === 'video') {
+        setMediaPreview(mediaPayload);
+      } else {
+        onSendMessage('', null, mediaPayload);
+      }
+    };
+    e.target.value = ''; // Reset input
+    setSelectedAttachmentType(null);
   };
 
   const isGroup = selectedChat.type === 'group';
@@ -348,24 +486,88 @@ const ChatWindow = ({
       {/* Input Area */}
       {!selectionMode && (
         <div className="bg-[#f0f2f5] dark:bg-[#202c33] px-4 py-3 flex items-center min-h-[62px] w-full relative z-10 transition-colors duration-300 border-t border-white/5">
-          <div className="flex space-x-2 mr-2">
-            <button className="text-gray-500 dark:text-[#aebac1] hover:text-gray-700 dark:hover:text-[#d1d7db] transition-colors p-2 hidden sm:block">
-              <Smile size={24} />
-            </button>
-            <button className="text-gray-500 dark:text-[#aebac1] hover:text-gray-700 dark:hover:text-[#d1d7db] transition-colors p-2">
-              <Paperclip size={24} />
-            </button>
-          </div>
-          
-          <form onSubmit={handleSubmit} className="flex-1 flex bg-white dark:bg-[#2a3942] rounded-lg px-2 sm:px-4 py-0 items-center overflow-hidden h-[42px] border border-transparent focus-within:border-white/20">
-            <input
-              type="text"
-              className="w-full bg-transparent outline-none py-2 text-sm text-gray-700 dark:text-[#d1d7db] placeholder:dark:text-[#8696a0]"
-              placeholder="Type a message"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-            />
-          </form>
+          {/* Emoji Picker Popup */}
+          {showEmojiPicker && (
+            <div className="absolute bottom-[70px] left-4 z-50 animate-in slide-in-bottom">
+              <EmojiPicker 
+                theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'}
+                onEmojiClick={(emojiData) => {
+                  setInputText(prev => prev + emojiData.emoji);
+                }}
+              />
+            </div>
+          )}
+
+          {/* Attachment Menu Popup */}
+          {showAttachmentMenu && (
+             <div className="absolute bottom-[70px] left-14 z-50 bg-white dark:bg-[#233138] rounded-xl shadow-xl py-3 w-56 animate-in slide-in-bottom duration-200">
+               {[
+                 { icon: FileText, color: 'text-indigo-500', label: 'Document' },
+                 { icon: ImageIcon, color: 'text-blue-500', label: 'Photos & videos' },
+                 { icon: Camera, color: 'text-pink-500', label: 'Camera' },
+                 { icon: Headphones, color: 'text-orange-500', label: 'Audio' },
+                 { icon: User, color: 'text-blue-400', label: 'Contact' },
+                 { icon: BarChart2, color: 'text-emerald-500', label: 'Poll' },
+                 { icon: Calendar, color: 'text-teal-500', label: 'Event' },
+                 { icon: Sticker, color: 'text-cyan-500', label: 'New sticker' },
+               ].map((item, index) => (
+                 <div 
+                   key={index} 
+                   onClick={() => handleAttachmentClick(item.label)}
+                   className="flex items-center px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] cursor-pointer"
+                 >
+                   <item.icon size={20} className={`${item.color} mr-4`} />
+                   <span className="text-gray-700 dark:text-[#d1d7db] text-sm">{item.label}</span>
+                 </div>
+               ))}
+             </div>
+          )}
+
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            className="hidden" 
+          />
+
+          {isRecording ? (
+            <div className="flex-1 flex items-center space-x-4 px-4 bg-white dark:bg-[#2a3942] rounded-lg h-[42px]">
+               <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
+               <span className="text-gray-700 dark:text-[#d1d7db] font-mono">{formatTime(recordingTime)}</span>
+               <div className="flex-1"></div>
+               <button onClick={() => stopRecording(true)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                 <Trash size={20} />
+               </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex space-x-2 mr-2">
+                <button 
+                  onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowAttachmentMenu(false); }}
+                  className={`${showEmojiPicker ? 'text-whatsapp-teal' : 'text-gray-500 dark:text-[#aebac1]'} hover:text-gray-700 dark:hover:text-[#d1d7db] transition-colors p-2 hidden sm:block`}
+                >
+                  <Smile size={24} />
+                </button>
+                <button 
+                  onClick={() => { setShowAttachmentMenu(!showAttachmentMenu); setShowEmojiPicker(false); }}
+                  className={`${showAttachmentMenu ? 'text-whatsapp-teal' : 'text-gray-500 dark:text-[#aebac1]'} hover:text-gray-700 dark:hover:text-[#d1d7db] transition-colors p-2`}
+                >
+                  <Plus size={24} />
+                </button>
+              </div>
+              
+              <form onSubmit={handleSubmit} className="flex-1 flex bg-white dark:bg-[#2a3942] rounded-lg px-2 sm:px-4 py-0 items-center overflow-hidden h-[42px] border border-transparent focus-within:border-white/20">
+                <input
+                  type="text"
+                  className="w-full bg-transparent outline-none py-2 text-sm text-gray-700 dark:text-[#d1d7db] placeholder:dark:text-[#8696a0]"
+                  placeholder="Type a message"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onClick={() => { setShowEmojiPicker(false); setShowAttachmentMenu(false); }}
+                />
+              </form>
+            </>
+          )}
           
           <div className="ml-2 flex items-center">
             {inputText.trim() ? (
@@ -375,13 +577,37 @@ const ChatWindow = ({
               >
                 <Send size={24} />
               </button>
+            ) : isRecording ? (
+              <button 
+                onClick={() => stopRecording(false)} 
+                className="bg-whatsapp-teal text-white hover:bg-[#00a884] transition-colors p-2 rounded-full shadow-lg"
+              >
+                <Send size={24} className="ml-0.5" />
+              </button>
             ) : (
-              <button className="text-gray-500 dark:text-[#aebac1] hover:text-gray-700 dark:hover:text-[#d1d7db] transition-colors p-2 hidden sm:block">
+              <button 
+                onClick={startRecording}
+                className="text-gray-500 dark:text-[#aebac1] hover:text-gray-700 dark:hover:text-[#d1d7db] transition-colors p-2 hidden sm:block"
+              >
                 <Mic size={24} />
               </button>
             )}
           </div>
         </div>
+      )}
+
+      {/* Media Preview Modal */}
+      {mediaPreview && (
+        <MediaPreviewModal
+          fileUrl={mediaPreview.mediaUrl}
+          fileType={mediaPreview.type}
+          fileName={mediaPreview.mediaName}
+          onClose={() => setMediaPreview(null)}
+          onSend={(caption) => {
+            onSendMessage(caption, null, mediaPreview);
+            setMediaPreview(null);
+          }}
+        />
       )}
 
       {/* Selection Bar */}

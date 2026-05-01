@@ -213,15 +213,17 @@ const Home = () => {
     loadMessages();
   }, [selectedChat?._id, currentUser?._id]);
 
-  const handleSendMessage = async (text, targetChat = null) => {
+  const handleSendMessage = async (text, targetChat = null, mediaData = null) => {
     const chat = targetChat || selectedChat;
-    if (!text.trim() || !chat) return;
+    if ((!text || !text.trim()) && !mediaData) return;
+    if (!chat) return;
 
     const isGroup = chat.type === 'group';
     const messageData = {
       senderId: currentUser._id,
-      text: text.trim(),
-      [isGroup ? 'groupId' : 'receiverId']: chat._id
+      text: text ? text.trim() : '',
+      [isGroup ? 'groupId' : 'receiverId']: chat._id,
+      ...(mediaData || { type: 'text' })
     };
 
     try {

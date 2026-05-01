@@ -1,6 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { Pin, Trash, ChevronDown } from 'lucide-react';
+import VoiceMessagePlayer from './VoiceMessagePlayer';
 
 const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName, currentUser, onDelete, onPin }) => {
   // Hide if deleted for current user
@@ -20,7 +21,7 @@ const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName,
       className={`flex flex-col mb-[2px] relative w-full group ${isOwn ? 'items-end' : 'items-start'}`}
     >
       <div 
-        className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-sm sm:text-[14.2px] break-words shadow-sm flex relative transition-theme ${
+        className={`max-w-[85%] sm:max-w-[70%] rounded-lg ${message.type === 'image' || message.type === 'video' ? 'p-1' : 'px-2 sm:px-3 py-1 sm:py-1.5'} text-sm sm:text-[14.2px] break-words shadow-sm flex relative transition-theme ${
           isOwn 
             ? 'bg-[#d9fdd3] dark:bg-[#005c4b] text-[#111b21] dark:text-[#e9edef]' 
             : 'bg-white dark:bg-[#202c33] text-[#111b21] dark:text-[#e9edef]'
@@ -56,14 +57,71 @@ const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName,
             </span>
           )}
           
-          <div className="flex items-start">
+          <div className="flex flex-col items-start">
             {isDeleted ? (
               <span className="flex items-center text-[#8696a0] italic">
                 <Trash size={14} className="mr-2" />
                 {isOwn ? 'You deleted this message' : 'This message was deleted'}
               </span>
             ) : (
-              <span dir="ltr" className="leading-[19px] whitespace-pre-wrap word-break">{message.text}</span>
+              <>
+                {message.type === 'audio' && (
+                  <div className="mb-1 w-full max-w-[300px]">
+                    <VoiceMessagePlayer 
+                      mediaUrl={message.mediaUrl} 
+                      senderName={senderName}
+                      avatarColor={message.senderId?.avatarColor}
+                      avatarLetter={message.senderId?.avatarLetter}
+                    />
+                  </div>
+                )}
+                {message.type === 'image' && (
+                  <div className="relative group/image">
+                    <img 
+                      src={message.mediaUrl} 
+                      alt="attachment" 
+                      className="max-w-full sm:max-w-xs md:max-w-sm rounded-md object-cover cursor-pointer" 
+                      onClick={() => window.open(message.mediaUrl)} 
+                    />
+                    <a 
+                      href={message.mediaUrl} 
+                      download={message.mediaName || 'image'} 
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute bottom-2 right-2 bg-black/50 text-white p-1.5 rounded-full opacity-0 group-hover/image:opacity-100 transition-opacity hover:bg-black/70 z-10"
+                    >
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                         <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                      </svg>
+                    </a>
+                  </div>
+                )}
+                {message.type === 'video' && (
+                  <div className="relative group/video">
+                    <video controls src={message.mediaUrl} className="max-w-full sm:max-w-xs md:max-w-sm rounded-md bg-black" />
+                  </div>
+                )}
+                {message.type === 'document' && (
+                  <div className="mb-1 flex items-center bg-black/5 dark:bg-white/5 p-2 rounded-md w-full max-w-[250px]">
+                    <div className="bg-red-500 text-white p-2 rounded-md mr-3">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col">
+                      <span className="text-sm font-medium text-gray-800 dark:text-[#e9edef] truncate">{message.mediaName}</span>
+                      <span className="text-xs text-gray-500">{(message.mediaSize / 1024).toFixed(1)} KB</span>
+                    </div>
+                    <a href={message.mediaUrl} download={message.mediaName} className="ml-2 text-whatsapp-teal hover:underline p-1">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                         <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                      </svg>
+                    </a>
+                  </div>
+                )}
+                {message.text && (
+                  <span dir="ltr" className="leading-[19px] whitespace-pre-wrap word-break">{message.text}</span>
+                )}
+              </>
             )}
           </div>
           

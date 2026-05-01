@@ -14,7 +14,9 @@ import {
   ThumbsDown, 
   Trash,
   Info,
-  CheckSquare
+  CheckSquare,
+  Mic,
+  FileText
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -32,8 +34,8 @@ const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, on
     { label: 'Always', value: -1 },
   ];
 
-  // In a real app, we would filter media from messages
-  const mediaMessages = messages.filter(m => m.type === 'image' || m.type === 'video');
+  // Include all non-text types for the Media, Links, and Docs gallery
+  const mediaMessages = messages.filter(m => m.type === 'image' || m.type === 'video' || m.type === 'audio' || m.type === 'document');
   const mediaCount = mediaMessages.length;
 
   return (
@@ -175,11 +177,27 @@ const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, on
           {mediaCount > 0 ? (
             <div className="flex space-x-2 overflow-x-hidden">
                {mediaMessages.slice(0, 3).map((m, i) => (
-                 <div key={i} className="w-20 h-20 bg-gray-200 dark:bg-[#202c33] rounded-sm overflow-hidden">
-                   {/* Placeholder for actual image/video thumbnail */}
-                   <div className="w-full h-full flex items-center justify-center text-gray-400">
-                     {m.type === 'image' ? 'IMG' : 'VID'}
-                   </div>
+                 <div key={i} className="w-[72px] h-[72px] sm:w-[86px] sm:h-[86px] bg-gray-200 dark:bg-[#202c33] rounded-md overflow-hidden relative cursor-pointer hover:opacity-90" onClick={() => window.open(m.mediaUrl)}>
+                   {m.type === 'image' ? (
+                     <img src={m.mediaUrl} alt="media" className="w-full h-full object-cover" />
+                   ) : m.type === 'video' ? (
+                     <div className="relative w-full h-full">
+                       <video src={m.mediaUrl} className="w-full h-full object-cover" />
+                       <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                         <Video size={24} className="text-white opacity-80" />
+                       </div>
+                     </div>
+                   ) : m.type === 'audio' ? (
+                     <div className="w-full h-full flex flex-col items-center justify-center bg-orange-100 dark:bg-orange-900/30">
+                        <Mic size={24} className="text-orange-500 mb-1" />
+                        <span className="text-[10px] text-orange-600 dark:text-orange-400 font-medium px-1 truncate w-full text-center">Audio</span>
+                     </div>
+                   ) : (
+                     <div className="w-full h-full flex flex-col items-center justify-center bg-blue-100 dark:bg-blue-900/30">
+                        <FileText size={24} className="text-blue-500 mb-1" />
+                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium px-1 truncate w-full text-center">{m.mediaName?.split('.').pop()?.toUpperCase() || 'DOC'}</span>
+                     </div>
+                   )}
                  </div>
                ))}
             </div>
