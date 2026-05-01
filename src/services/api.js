@@ -39,4 +39,14 @@ export const markMessagesAsRead = async (senderId, receiverId) => {
   return response.data;
 };
 
+export const searchUsers = async (query, currentUserId) => {
+  const response = await api.get(`/users/search?query=${query}&currentUserId=${currentUserId}`);
+  return response.data;
+};
+
+export const updateProfile = async (userId, profileData) => {
+  const response = await api.put(`/users/update/${userId}`, profileData);
+  return response.data;
+};
+
 export default api;

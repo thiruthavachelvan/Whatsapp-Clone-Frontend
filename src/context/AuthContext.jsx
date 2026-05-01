@@ -24,8 +24,13 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(null);
   };
 
+  const updateUser = (userData) => {
+    sessionStorage.setItem('whatsapp-clone-user', JSON.stringify(userData));
+    setCurrentUser(userData);
+  };
+
   return (
-    <AuthContext.Provider value={{ currentUser, loginUser, logoutUser, loading }}>
+    <AuthContext.Provider value={{ currentUser, loginUser, logoutUser, updateUser, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

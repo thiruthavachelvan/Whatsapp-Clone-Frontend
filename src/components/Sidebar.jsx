@@ -1,31 +1,51 @@
 import React, { useState, useContext } from 'react';
-import { Search, MoreVertical, MessageSquare, LogOut, Sun, Moon } from 'lucide-react';
+import { Search, MoreVertical, MessageSquare, LogOut, Sun, Moon, User as UserIcon, Star, Settings, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { ThemeContext } from '../context/ThemeContext';
+import { AuthContext } from '../context/AuthContext';
+import ProfileDrawer from './Drawers/ProfileDrawer';
+import NewChatDrawer from './Drawers/NewChatDrawer';
 
 const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSelectUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeDrawer, setActiveDrawer] = useState(null); // 'profile', 'new-chat', or null
+  const [showMenu, setShowMenu] = useState(false);
   const { darkMode, toggleTheme } = useContext(ThemeContext);
-  console.log('Sidebar rendering, darkMode:', darkMode);
+  const { updateUser } = useContext(AuthContext);
 
   const filteredUsers = users.filter(user => 
     user.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#111b21] transition-colors duration-300">
+    <div className="flex flex-col h-full bg-white dark:bg-[#111b21] transition-colors duration-300 relative overflow-hidden">
+      {/* Drawers */}
+      <ProfileDrawer 
+        isOpen={activeDrawer === 'profile'} 
+        onClose={() => setActiveDrawer(null)} 
+        currentUser={currentUser}
+        onUpdateUser={updateUser}
+      />
+      <NewChatDrawer 
+        isOpen={activeDrawer === 'new-chat'} 
+        onClose={() => setActiveDrawer(null)} 
+        currentUser={currentUser}
+        onSelectUser={onSelectUser}
+      />
+
       {/* Header */}
       <div className="h-16 bg-[#f0f2f5] dark:bg-[#202c33] px-4 py-2 flex justify-between items-center border-b border-gray-200 dark:border-white/5">
         <div className="flex items-center">
           <div 
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold cursor-pointer"
+            onClick={() => setActiveDrawer('profile')}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold cursor-pointer hover:opacity-80 transition-opacity"
             style={{ backgroundColor: currentUser.avatarColor || '#128C7E' }}
-            title={currentUser.username}
+            title="Profile"
           >
             {currentUser.avatarLetter || currentUser.username.charAt(0).toUpperCase()}
           </div>
         </div>
-        <div className="flex space-x-2 text-gray-500 dark:text-[#aebac1]">
+        <div className="flex space-x-2 text-gray-500 dark:text-[#aebac1] relative">
           <button 
             onClick={toggleTheme}
             className="hover:bg-gray-200 dark:hover:bg-[#374248] p-2 rounded-full transition-colors" 
@@ -33,19 +53,47 @@ const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSe
           >
             {darkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-          <button className="hover:bg-gray-200 dark:hover:bg-[#374248] p-2 rounded-full transition-colors" title="Communities">
+          <button 
+            onClick={() => setActiveDrawer('new-chat')}
+            className="hover:bg-gray-200 dark:hover:bg-[#374248] p-2 rounded-full transition-colors" 
+            title="New Chat"
+          >
             <MessageSquare size={20} />
           </button>
-          <button 
-            onClick={onLogout} 
-            className="hover:bg-gray-200 dark:hover:bg-[#374248] p-2 rounded-full transition-colors"
-            title="Log out"
-          >
-            <LogOut size={20} />
-          </button>
-          <button className="hover:bg-gray-200 p-2 rounded-full transition-colors">
-            <MoreVertical size={20} />
-          </button>
+          
+          <div className="relative">
+            <button 
+              onClick={() => setShowMenu(!showMenu)}
+              className={`hover:bg-gray-200 dark:hover:bg-[#374248] p-2 rounded-full transition-colors ${showMenu ? 'bg-gray-200 dark:bg-[#374248]' : ''}`}
+              title="Menu"
+            >
+              <MoreVertical size={20} />
+            </button>
+            
+            {showMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)}></div>
+                <div className="absolute right-0 top-10 w-48 bg-white dark:bg-[#233138] shadow-lg rounded-sm py-2 z-50 animate-in fade-in zoom-in duration-200">
+                  <button className="w-full text-left px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] text-gray-700 dark:text-[#d1d7db] text-sm flex items-center space-x-3">
+                    <Users size={18} /> <span>New group</span>
+                  </button>
+                  <button className="w-full text-left px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] text-gray-700 dark:text-[#d1d7db] text-sm flex items-center space-x-3">
+                    <Star size={18} /> <span>Starred messages</span>
+                  </button>
+                  <button className="w-full text-left px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] text-gray-700 dark:text-[#d1d7db] text-sm flex items-center space-x-3">
+                    <Settings size={18} /> <span>Settings</span>
+                  </button>
+                  <hr className="my-1 border-gray-100 dark:border-white/5" />
+                  <button 
+                    onClick={() => { setShowMenu(false); onLogout(); }}
+                    className="w-full text-left px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] text-gray-700 dark:text-[#d1d7db] text-sm flex items-center space-x-3"
+                  >
+                    <LogOut size={18} /> <span>Log out</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -66,8 +114,14 @@ const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSe
       {/* Contact List */}
       <div className="flex-1 overflow-y-auto bg-white dark:bg-[#111b21] custom-scrollbar">
         {filteredUsers.length === 0 ? (
-          <div className="flex justify-center items-center h-20 text-gray-400 text-sm">
-            No contacts found
+          <div className="flex flex-col items-center justify-center h-40 text-gray-400 text-sm px-6 text-center">
+            <p>No contacts found</p>
+            <button 
+              onClick={() => setActiveDrawer('new-chat')}
+              className="mt-4 text-whatsapp-teal hover:underline font-medium"
+            >
+              Start a new chat
+            </button>
           </div>
         ) : (
           filteredUsers.map(user => {
@@ -98,15 +152,15 @@ const Sidebar = ({ users, activeUsers, currentUser, onLogout, selectedUser, onSe
                   <div className="flex justify-between items-baseline mb-1">
                     <h3 className="font-normal text-gray-900 dark:text-[#e9edef] truncate text-base">{user.username}</h3>
                     <span className="text-xs text-gray-400 dark:text-[#8696a0]">
-                      {user.createdAt ? format(new Date(user.createdAt), 'MMM d') : ''}
+                      {user.createdAt ? format(new Date(user.createdAt), 'h:mm a') : ''}
                     </span>
                   </div>
                   <div className="text-sm text-gray-500 dark:text-[#8696a0] truncate flex items-center justify-between">
                     <span className={isOnline ? "text-whatsapp-teal" : ""}>
-                      {isOnline ? 'Online' : 'Tap to chat'}
+                      {user.about || (isOnline ? 'Online' : 'Tap to chat')}
                     </span>
                     {user.unreadCount > 0 && (
-                      <span className="bg-whatsapp-green text-white text-[10px] font-bold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5 shadow-sm">
+                      <span className="bg-whatsapp-green text-white text-[10px] font-bold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5 shadow-sm ml-2">
                         {user.unreadCount}
                       </span>
                     )}
