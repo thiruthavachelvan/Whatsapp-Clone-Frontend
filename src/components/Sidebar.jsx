@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { Search, MoreVertical, MessageSquare, LogOut, Sun, Moon, User as UserIcon, Star, Settings, Users } from 'lucide-react';
+import { Search, MoreVertical, MessageSquare, LogOut, Sun, Moon, User as UserIcon, Star, Settings, Users, BellOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { ThemeContext } from '../context/ThemeContext';
 import { AuthContext } from '../context/AuthContext';
@@ -165,6 +165,10 @@ const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedCh
             const isGroup = chat.type === 'group';
             const isOnline = !isGroup && activeUsers.includes(chat._id);
             
+            // Check if chat is muted
+            const muteInfo = currentUser.mutedChats?.find(m => (m.chatId?._id || m.chatId)?.toString() === chat._id);
+            const isMuted = muteInfo && new Date(muteInfo.mutedUntil) > new Date();
+
             return (
               <div 
                 key={chat._id}
@@ -187,7 +191,10 @@ const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedCh
                 
                 <div className="ml-4 flex-1 overflow-hidden">
                   <div className="flex justify-between items-baseline mb-1">
-                    <h3 className="font-normal text-gray-900 dark:text-[#e9edef] truncate text-base">{isGroup ? chat.name : chat.username}</h3>
+                    <div className="flex items-center overflow-hidden mr-2">
+                      <h3 className="font-normal text-gray-900 dark:text-[#e9edef] truncate text-base">{isGroup ? chat.name : chat.username}</h3>
+                      {isMuted && <BellOff size={14} className="text-gray-400 ml-2 flex-shrink-0" />}
+                    </div>
                     <span className="text-xs text-gray-400 dark:text-[#8696a0]">
                       {chat.updatedAt ? format(new Date(chat.updatedAt), 'h:mm a') : ''}
                     </span>
@@ -197,7 +204,7 @@ const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedCh
                       {isGroup ? `${chat.members.length} members` : (chat.about || (isOnline ? 'Online' : 'Tap to chat'))}
                     </span>
                     {(chat.unreadCount > 0) && (
-                      <span className="bg-whatsapp-green text-white text-[10px] font-bold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5 shadow-sm ml-2">
+                      <span className={`${isMuted ? 'bg-[#54656f] dark:bg-[#3b4a54]' : 'bg-whatsapp-green'} text-white text-[10px] font-bold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5 shadow-sm ml-2`}>
                         {chat.unreadCount}
                       </span>
                     )}

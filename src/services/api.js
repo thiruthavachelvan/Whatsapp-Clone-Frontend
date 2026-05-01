@@ -89,4 +89,9 @@ export const clearChat = async (userId, targetId, isGroup) => {
   return response.data;
 };
 
+export const deleteChat = async (userId, targetId) => {
+  const response = await api.put('/users/hide', { userId, targetId });
+  return response.data;
+};
+
 export default api;

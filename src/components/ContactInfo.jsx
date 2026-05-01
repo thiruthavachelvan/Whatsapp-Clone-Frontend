@@ -6,7 +6,7 @@ import {
   Search, 
   ChevronRight, 
   Star, 
-  Bell, 
+  BellOff, 
   Clock, 
   Heart, 
   List, 
@@ -17,9 +17,13 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-const ContactInfo = ({ chat, onClose, onClearChat, onBlockUser, onReportUser, onMuteChat, messages = [] }) => {
-  const [showMuteOptions, setShowMuteOptions] = useState(false);
+const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, onBlockUser, onReportUser, onMuteChat, messages = [] }) => {
+  const [showMuteModal, setShowMuteModal] = useState(false);
   const isGroup = chat.type === 'group';
+
+  // Check current mute status
+  const currentMute = currentUser.mutedChats?.find(m => m.chatId === chat._id);
+  const isCurrentlyMuted = currentMute && new Date(currentMute.mutedUntil) > new Date();
 
   const muteOptions = [
     { label: '8 Hours', value: 8 },
@@ -28,10 +32,73 @@ const ContactInfo = ({ chat, onClose, onClearChat, onBlockUser, onReportUser, on
   ];
 
   // In a real app, we would filter media from messages
-  const mediaCount = messages.filter(m => m.type === 'image' || m.type === 'video').length || 0;
+  const mediaMessages = messages.filter(m => m.type === 'image' || m.type === 'video');
+  const mediaCount = mediaMessages.length;
 
   return (
-    <div className="w-full md:w-[350px] lg:w-[400px] h-full bg-white dark:bg-[#111b21] border-l border-gray-200 dark:border-white/5 flex flex-col z-20 animate-slide-in-right">
+    <div className="w-full md:w-[350px] lg:w-[400px] h-full bg-white dark:bg-[#111b21] border-l border-gray-200 dark:border-white/5 flex flex-col z-20 animate-slide-in-right relative">
+      
+      {/* Mute Modal Overlay */}
+      {showMuteModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/50">
+          <div className="bg-white dark:bg-[#3b4a54] w-full max-w-xs rounded-sm shadow-xl p-6 animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-gray-800 dark:text-[#e9edef] text-lg mb-4">Mute notifications</h3>
+            <div className="space-y-4 mb-6">
+              {muteOptions.map((opt) => {
+                const isSelected = currentMute && (
+                  opt.value === -1 
+                    ? new Date(currentMute.mutedUntil).getFullYear() > new Date().getFullYear() + 50
+                    : Math.abs(Math.round((new Date(currentMute.mutedUntil) - new Date()) / 3600000) - opt.value) <= 1
+                );
+                return (
+                  <label key={opt.value} className="flex items-center cursor-pointer group">
+                    <div className="relative flex items-center justify-center">
+                      <input 
+                        type="radio" 
+                        name="mute" 
+                        className="peer h-5 w-5 cursor-pointer appearance-none rounded-full border border-[#8696a0] checked:border-whatsapp-green transition-all"
+                        checked={isSelected}
+                        onChange={() => onMuteChat(opt.value)}
+                      />
+                      <div className="absolute h-3 w-3 rounded-full bg-whatsapp-green opacity-0 peer-checked:opacity-100 transition-opacity"></div>
+                    </div>
+                    <span className="ml-4 text-gray-700 dark:text-[#d1d7db]">{opt.label}</span>
+                  </label>
+                );
+              })}
+              {isCurrentlyMuted && (
+                <label className="flex items-center cursor-pointer group">
+                  <div className="relative flex items-center justify-center">
+                    <input 
+                      type="radio" 
+                      name="mute" 
+                      className="peer h-5 w-5 cursor-pointer appearance-none rounded-full border border-[#8696a0] checked:border-whatsapp-green transition-all"
+                      onChange={() => onMuteChat(0)}
+                    />
+                    <div className="absolute h-3 w-3 rounded-full bg-whatsapp-green opacity-0 peer-checked:opacity-100 transition-opacity"></div>
+                  </div>
+                  <span className="ml-4 text-gray-700 dark:text-[#d1d7db]">Unmute</span>
+                </label>
+              )}
+            </div>
+            <div className="flex justify-end space-x-4">
+              <button 
+                onClick={() => setShowMuteModal(false)}
+                className="text-whatsapp-teal text-sm font-medium hover:bg-gray-100 dark:hover:bg-white/5 px-4 py-2 rounded transition-colors uppercase"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => setShowMuteModal(false)}
+                className="bg-whatsapp-green text-white text-sm font-medium px-6 py-2 rounded shadow-sm hover:bg-opacity-90 transition-colors uppercase"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="h-16 bg-[#f0f2f5] dark:bg-[#202c33] px-4 flex items-center border-b border-gray-200 dark:border-white/5">
         <button onClick={onClose} className="text-gray-500 dark:text-[#aebac1] hover:bg-gray-200 dark:hover:bg-[#374248] p-2 rounded-full mr-4">
@@ -44,10 +111,14 @@ const ContactInfo = ({ chat, onClose, onClearChat, onBlockUser, onReportUser, on
         {/* Profile Section */}
         <div className="bg-white dark:bg-[#111b21] py-7 px-4 flex flex-col items-center mb-2 shadow-sm">
           <div 
-            className="w-48 h-48 rounded-full flex items-center justify-center text-white text-6xl font-bold mb-4 shadow-sm"
+            className="w-48 h-48 rounded-full flex items-center justify-center text-white text-6xl font-bold mb-4 shadow-sm overflow-hidden"
             style={{ backgroundColor: chat.avatarColor || (isGroup ? '#00a884' : '#9ca3af') }}
           >
-            {isGroup ? <Info size={80} /> : (chat.avatarLetter || chat.username?.charAt(0).toUpperCase())}
+            {chat.profilePic ? (
+              <img src={chat.profilePic} alt={chat.username} className="w-full h-full object-cover" />
+            ) : (
+              isGroup ? <Info size={80} /> : (chat.avatarLetter || chat.username?.charAt(0).toUpperCase())
+            )}
           </div>
           <h2 className="text-xl text-gray-900 dark:text-[#e9edef] mb-1 font-normal">{isGroup ? chat.name : chat.username}</h2>
           {!isGroup && (
@@ -97,12 +168,20 @@ const ContactInfo = ({ chat, onClose, onClearChat, onBlockUser, onReportUser, on
               <ChevronRight size={18} />
             </div>
           </div>
-          <div className="flex space-x-2 overflow-x-hidden">
-             {/* Placeholders for media */}
-             <div className="w-20 h-20 bg-gray-200 dark:bg-[#202c33] rounded-sm"></div>
-             <div className="w-20 h-20 bg-gray-200 dark:bg-[#202c33] rounded-sm"></div>
-             <div className="w-20 h-20 bg-gray-200 dark:bg-[#202c33] rounded-sm"></div>
-          </div>
+          {mediaCount > 0 ? (
+            <div className="flex space-x-2 overflow-x-hidden">
+               {mediaMessages.slice(0, 3).map((m, i) => (
+                 <div key={i} className="w-20 h-20 bg-gray-200 dark:bg-[#202c33] rounded-sm overflow-hidden">
+                   {/* Placeholder for actual image/video thumbnail */}
+                   <div className="w-full h-full flex items-center justify-center text-gray-400">
+                     {m.type === 'image' ? 'IMG' : 'VID'}
+                   </div>
+                 </div>
+               ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-[#8696a0] py-2">No media present</p>
+          )}
         </div>
 
         {/* Settings List */}
@@ -114,32 +193,15 @@ const ContactInfo = ({ chat, onClose, onClearChat, onBlockUser, onReportUser, on
           </div>
           
           <div 
-            onClick={() => setShowMuteOptions(!showMuteOptions)}
-            className="flex flex-col border-t border-gray-100 dark:border-white/5"
+            onClick={() => setShowMuteModal(true)}
+            className="flex items-center px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#182229] transition-colors border-t border-gray-100 dark:border-white/5"
           >
-            <div className="flex items-center px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#182229] transition-colors">
-              <Bell size={20} className="text-[#8696a0] mr-6" />
-              <span className="flex-1 text-gray-900 dark:text-[#e9edef]">Mute notifications</span>
-              <ChevronRight size={18} className={`text-[#8696a0] transition-transform ${showMuteOptions ? 'rotate-90' : ''}`} />
-            </div>
-            
-            {showMuteOptions && (
-              <div className="px-6 pb-4 flex flex-col space-y-3 animate-in fade-in slide-in-from-top-1">
-                <button onClick={() => onMuteChat(1)} className="text-left text-sm text-whatsapp-teal hover:underline px-10">Mute for 1 Hour</button>
-                <button onClick={() => onMuteChat(24)} className="text-left text-sm text-whatsapp-teal hover:underline px-10">Mute for 24 Hours</button>
-                <button onClick={() => onMuteChat(168)} className="text-left text-sm text-whatsapp-teal hover:underline px-10">Mute for 7 Days</button>
-                <button onClick={() => onMuteChat(720)} className="text-left text-sm text-whatsapp-teal hover:underline px-10">Mute for 30 Days</button>
-                <button onClick={() => onMuteChat(-1)} className="text-left text-sm text-whatsapp-teal hover:underline px-10">Mute Always</button>
-                <button onClick={() => onMuteChat(0)} className="text-left text-sm text-gray-500 hover:underline px-10">Unmute</button>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#182229] transition-colors border-t border-gray-100 dark:border-white/5">
-            <Clock size={20} className="text-[#8696a0] mr-6" />
+            <BellOff size={20} className="text-[#8696a0] mr-6" />
             <div className="flex-1">
-              <p className="text-gray-900 dark:text-[#e9edef]">Disappearing messages</p>
-              <p className="text-xs text-[#8696a0]">Off</p>
+              <p className="text-gray-900 dark:text-[#e9edef]">Mute notifications</p>
+              {isCurrentlyMuted && (
+                <p className="text-xs text-whatsapp-teal">Muted until {new Date(currentMute.mutedUntil).toLocaleTimeString()}</p>
+              )}
             </div>
             <ChevronRight size={18} className="text-[#8696a0]" />
           </div>
@@ -162,7 +224,7 @@ const ContactInfo = ({ chat, onClose, onClearChat, onBlockUser, onReportUser, on
                 className="flex items-center px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#182229] transition-colors text-[#f15c6d] border-t border-gray-100 dark:border-white/5"
               >
                 <Ban size={20} className="mr-6" />
-                <span className="flex-1">Block {chat.username}</span>
+                <span className="flex-1">{currentUser.blockedUsers?.includes(chat._id) ? 'Unblock' : 'Block'} {chat.username}</span>
               </div>
               <div 
                 onClick={onReportUser}
@@ -175,7 +237,7 @@ const ContactInfo = ({ chat, onClose, onClearChat, onBlockUser, onReportUser, on
           )}
           
           <div 
-            onClick={onClearChat} // Using clear chat for delete for now as requested
+            onClick={onDeleteChat}
             className="flex items-center px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#182229] transition-colors text-[#f15c6d] border-t border-gray-100 dark:border-white/5"
           >
             <Trash size={20} className="mr-6" />

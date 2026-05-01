@@ -73,17 +73,30 @@ const Home = () => {
         console.log("Target chat not active, showing notification in sidebar");
         // Notification for sidebar
         if (data.groupId) {
-          setGroups(prev => prev.map(g => 
-            g._id === data.groupId ? { ...g, unreadCount: (g.unreadCount || 0) + 1 } : g
-          ));
+          setGroups(prev => {
+            const groupExists = prev.some(g => g._id === data.groupId);
+            if (!groupExists) {
+              fetchUserGroups(currentUser._id).then(setGroups);
+              return prev;
+            }
+            return prev.map(g => 
+              g._id === data.groupId ? { ...g, unreadCount: (g.unreadCount || 0) + 1 } : g
+            );
+          });
         } else {
-          setUsers((prevUsers) => 
-            prevUsers.map(user => 
+          setUsers((prevUsers) => {
+            const userExists = prevUsers.some(u => u._id === incomingSenderId);
+            if (!userExists) {
+              // Re-fetch to include newly unhidden/new contact
+              fetchUsers(currentUser._id).then(setUsers);
+              return prevUsers;
+            }
+            return prevUsers.map(user => 
               user._id === incomingSenderId 
                 ? { ...user, unreadCount: (user.unreadCount || 0) + 1 } 
                 : user
-            )
-          );
+            );
+          });
         }
       }
     });
@@ -158,6 +171,9 @@ const Home = () => {
     const loadMessages = async () => {
       if (!selectedChat) return;
       
+      // Auto-close contact info when switching chats
+      setShowContactInfo(false);
+
       setLoading(true);
       try {
         const isGroup = selectedChat.type === 'group';
@@ -205,6 +221,13 @@ const Home = () => {
 
       // 2. Save to db
       const savedMessage = await sendApiMessage(messageData);
+      
+      // If we are sending a message to someone not in our current users list (could be previously hidden)
+      // we need to refresh the list to show them in the sidebar
+      if (!isGroup && !users.some(u => u._id === selectedChat._id)) {
+        const updatedUsers = await fetchUsers(currentUser._id);
+        setUsers(updatedUsers);
+      }
       
       // 3. Update the last message
       setMessages((prev) => prev.map(m => 
@@ -272,7 +295,6 @@ const Home = () => {
     try {
       const data = await muteChat(currentUser._id, selectedChat._id, duration);
       updateUser({ ...currentUser, mutedChats: data.mutedChats });
-      alert(data.message);
     } catch (error) {
       console.error("Failed to mute chat", error);
     }
@@ -296,9 +318,35 @@ const Home = () => {
       try {
         await clearChat(currentUser._id, selectedChat._id, selectedChat.type === 'group');
         setMessages([]);
-        alert("Chat cleared");
       } catch (error) {
         console.error("Failed to clear chat", error);
+      }
+    }
+  };
+
+  const handleDeleteFullChat = async () => {
+    if (!selectedChat) return;
+    if (window.confirm("Are you sure you want to delete this chat and the contact?")) {
+      try {
+        // 1. Clear messages
+        await clearChat(currentUser._id, selectedChat._id, selectedChat.type === 'group');
+        
+        // 2. Hide contact (Delete for user)
+        const { deleteChat: deleteChatApi } = await import('../services/api');
+        await deleteChatApi(currentUser._id, selectedChat._id);
+        
+        // 3. Reset UI
+        setMessages([]);
+        setSelectedChat(null);
+        setShowContactInfo(false);
+        
+        // 4. Refresh users list
+        const updatedUsers = await fetchUsers(currentUser._id);
+        setUsers(updatedUsers);
+        
+        alert("Chat and contact deleted");
+      } catch (error) {
+        console.error("Failed to delete chat", error);
       }
     }
   };
@@ -372,9 +420,11 @@ const Home = () => {
           {selectedChat && showContactInfo && (
             <ContactInfo 
               chat={selectedChat}
+              currentUser={currentUser}
               messages={messages}
               onClose={() => setShowContactInfo(false)}
               onClearChat={handleClearChat}
+              onDeleteChat={handleDeleteFullChat}
               onBlockUser={handleBlock}
               onMuteChat={handleMute}
               onReportUser={handleReport}

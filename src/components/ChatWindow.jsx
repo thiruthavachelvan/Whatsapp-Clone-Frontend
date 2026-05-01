@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, MoreVertical, Paperclip, Smile, Mic, Send, ArrowLeft, Users } from 'lucide-react';
+import { Search, MoreVertical, Paperclip, Smile, Mic, Send, ArrowLeft, Users, BellOff } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 
 const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack, loading, onToggleStar, onShowContactInfo }) => {
@@ -52,7 +52,13 @@ const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack
             onClick={onShowContactInfo}
             className="ml-4 cursor-pointer truncate"
           >
-            <h2 className="font-normal text-gray-900 dark:text-[#e9edef] text-base">{isGroup ? selectedChat.name : selectedChat.username}</h2>
+            <div className="flex items-center">
+              <h2 className="font-normal text-gray-900 dark:text-[#e9edef] text-base truncate mr-2">{isGroup ? selectedChat.name : selectedChat.username}</h2>
+              {(() => {
+                const muteInfo = currentUser.mutedChats?.find(m => (m.chatId?._id || m.chatId)?.toString() === selectedChat._id);
+                return muteInfo && new Date(muteInfo.mutedUntil) > new Date() && <BellOff size={14} className="text-gray-400" />;
+              })()}
+            </div>
             <p className="text-xs text-gray-500 dark:text-[#8696a0] truncate">
               {isGroup 
                 ? selectedChat.members.map(m => m.username).join(', ') 
@@ -70,6 +76,21 @@ const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack
           </button>
         </div>
       </div>
+
+      {/* Mute Banner */}
+      {(() => {
+        const muteInfo = currentUser.mutedChats?.find(m => (m.chatId?._id || m.chatId)?.toString() === selectedChat._id);
+        if (muteInfo && new Date(muteInfo.mutedUntil) > new Date()) {
+          const timeStr = new Date(muteInfo.mutedUntil).toLocaleString();
+          return (
+            <div className="bg-[#f0f2f5] dark:bg-[#182229] px-4 py-2 flex items-center justify-center text-xs text-gray-500 dark:text-[#8696a0] border-b border-gray-200 dark:border-white/5 relative z-20">
+              <BellOff size={14} className="mr-2" />
+              <span>You muted this chat until {timeStr}</span>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto px-4 py-4 md:px-[6%] lg:px-[8%] w-full relative custom-scrollbar">
