@@ -110,13 +110,22 @@ const Home = () => {
 
     try {
       // 1. Optimistically add message to UI
-      const tempMessage = { ...messageData, createdAt: new Date().toISOString() };
+      const tempMessage = { 
+        ...messageData, 
+        isRead: false,
+        createdAt: new Date().toISOString() 
+      };
       setMessages((prev) => [...prev, tempMessage]);
 
-      // 2. Save to db FIRST to avoid race condition with socket
+      // 2. Save to db
       const savedMessage = await sendApiMessage(messageData);
       
-      // 3. Emit socket event only AFTER message is in DB
+      // 3. Update the last message with the real one from DB (to get correct ID/status)
+      setMessages((prev) => prev.map(m => 
+        (m.text === tempMessage.text && !m._id) ? { ...savedMessage, isRead: false } : m
+      ));
+
+      // 4. Emit socket event
       socketRef.current.emit('sendMessage', {
         ...messageData,
         _id: savedMessage._id,
