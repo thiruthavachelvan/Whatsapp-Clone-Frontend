@@ -69,4 +69,24 @@ export const fetchUserGroups = async (userId) => {
   return response.data;
 };
 
+export const blockUser = async (userId, targetId) => {
+  const response = await api.put('/users/block', { userId, targetId });
+  return response.data;
+};
+
+export const muteChat = async (userId, chatId, muteDuration) => {
+  const response = await api.put('/users/mute', { userId, chatId, muteDuration });
+  return response.data;
+};
+
+export const reportUser = async (userId, targetId, reason) => {
+  const response = await api.post('/users/report', { userId, targetId, reason });
+  return response.data;
+};
+
+export const clearChat = async (userId, targetId, isGroup) => {
+  const response = await api.post('/messages/clear', { userId, targetId, isGroup });
+  return response.data;
+};
+
 export default api;

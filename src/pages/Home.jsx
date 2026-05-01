@@ -7,19 +7,25 @@ import {
   sendMessage as sendApiMessage, 
   markMessagesAsRead,
   toggleStarMessage,
-  fetchUserGroups
+  fetchUserGroups,
+  blockUser,
+  muteChat,
+  reportUser,
+  clearChat
 } from '../services/api';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
+import ContactInfo from '../components/ContactInfo';
 
 const Home = () => {
-  const { currentUser, logoutUser } = useContext(AuthContext);
+  const { currentUser, logoutUser, updateUser } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [activeUsers, setActiveUsers] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null); // Unified state for user or group
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showContactInfo, setShowContactInfo] = useState(false);
   
   const socketRef = useRef();
   const selectedChatRef = useRef(null);
@@ -250,6 +256,53 @@ const Home = () => {
     socketRef.current.emit('createGroup', newGroup);
   };
 
+  const handleBlock = async () => {
+    if (!selectedChat || selectedChat.type === 'group') return;
+    try {
+      const data = await blockUser(currentUser._id, selectedChat._id);
+      updateUser({ ...currentUser, blockedUsers: data.blockedUsers });
+      alert(data.message);
+    } catch (error) {
+      console.error("Failed to block user", error);
+    }
+  };
+
+  const handleMute = async (duration) => {
+    if (!selectedChat) return;
+    try {
+      const data = await muteChat(currentUser._id, selectedChat._id, duration);
+      updateUser({ ...currentUser, mutedChats: data.mutedChats });
+      alert(data.message);
+    } catch (error) {
+      console.error("Failed to mute chat", error);
+    }
+  };
+
+  const handleReport = async () => {
+    if (!selectedChat || selectedChat.type === 'group') return;
+    const reason = window.prompt("Please provide a reason for reporting this user:");
+    if (reason === null) return; // Cancelled
+    try {
+      const data = await reportUser(currentUser._id, selectedChat._id, reason);
+      alert(data.message);
+    } catch (error) {
+      console.error("Failed to report user", error);
+    }
+  };
+
+  const handleClearChat = async () => {
+    if (!selectedChat) return;
+    if (window.confirm("Are you sure you want to clear this chat? This will delete all messages.")) {
+      try {
+        await clearChat(currentUser._id, selectedChat._id, selectedChat.type === 'group');
+        setMessages([]);
+        alert("Chat cleared");
+      } catch (error) {
+        console.error("Failed to clear chat", error);
+      }
+    }
+  };
+
   return (
     <div className="h-screen w-full bg-whatsapp-gray dark:bg-[#0b141a] flex overflow-hidden transition-colors duration-300">
       {/* Desktop Layout Background ... */}
@@ -283,7 +336,7 @@ const Home = () => {
           </div>
 
           {/* Main Chat Area */}
-          <div className={`w-full md:w-[70%] lg:w-[65%] flex flex-col bg-chat-pattern bg-[#efeae2] dark:bg-[#0b141a] ${!selectedChat ? 'hidden md:flex' : 'flex'}`}>
+          <div className={`flex flex-col bg-chat-pattern bg-[#efeae2] dark:bg-[#0b141a] transition-all duration-300 ${!selectedChat ? 'hidden md:flex flex-1' : 'flex'} ${showContactInfo ? 'w-full md:w-[40%] lg:w-[35%]' : 'w-full md:w-[70%] lg:w-[65%]'}`}>
             {selectedChat ? (
               <ChatWindow 
                 currentUser={currentUser}
@@ -291,8 +344,10 @@ const Home = () => {
                 messages={messages} 
                 onSendMessage={handleSendMessage}
                 onToggleStar={handleToggleStar}
+                onShowContactInfo={() => setShowContactInfo(!showContactInfo)}
                 onBack={() => {
                   setSelectedChat(null);
+                  setShowContactInfo(false);
                   localStorage.removeItem('selectedChatId');
                   localStorage.removeItem('selectedChatType');
                 }}
@@ -312,6 +367,19 @@ const Home = () => {
               </div>
             )}
           </div>
+
+          {/* Contact Info Sidebar */}
+          {selectedChat && showContactInfo && (
+            <ContactInfo 
+              chat={selectedChat}
+              messages={messages}
+              onClose={() => setShowContactInfo(false)}
+              onClearChat={handleClearChat}
+              onBlockUser={handleBlock}
+              onMuteChat={handleMute}
+              onReportUser={handleReport}
+            />
+          )}
 
         </div>
       </div>

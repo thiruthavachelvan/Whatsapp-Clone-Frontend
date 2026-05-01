@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Search, MoreVertical, Paperclip, Smile, Mic, Send, ArrowLeft, Users } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 
-const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack, loading, onToggleStar }) => {
+const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack, loading, onToggleStar, onShowContactInfo }) => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -36,7 +36,10 @@ const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack
             <ArrowLeft size={20} className="text-gray-600" />
           </button>
           
-          <div className="relative flex-shrink-0 cursor-pointer">
+          <div 
+            onClick={onShowContactInfo}
+            className="relative flex-shrink-0 cursor-pointer"
+          >
             <div 
               className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
               style={{ backgroundColor: selectedChat.avatarColor || (isGroup ? '#00a884' : '#9ca3af') }}
@@ -45,7 +48,10 @@ const ChatWindow = ({ currentUser, selectedChat, messages, onSendMessage, onBack
             </div>
           </div>
           
-          <div className="ml-4 cursor-pointer truncate">
+          <div 
+            onClick={onShowContactInfo}
+            className="ml-4 cursor-pointer truncate"
+          >
             <h2 className="font-normal text-gray-900 dark:text-[#e9edef] text-base">{isGroup ? selectedChat.name : selectedChat.username}</h2>
             <p className="text-xs text-gray-500 dark:text-[#8696a0] truncate">
               {isGroup 
