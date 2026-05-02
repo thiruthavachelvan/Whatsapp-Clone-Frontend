@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { Pin, Trash, ChevronDown } from 'lucide-react';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
 
-const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName, currentUser, onDelete, onPin }) => {
+const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName, currentUser, onDelete, onPin, onImageClick }) => {
   // Hide if deleted for current user
   if (message.deletedBy?.includes(currentUser?._id)) return null;
 
@@ -66,7 +66,7 @@ const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName,
             ) : (
               <>
                 {message.type === 'audio' && (
-                  <div className="mb-1 w-full max-w-[300px]">
+                  <div className="mb-1 w-full max-w-[300px]" onDoubleClick={() => onImageClick?.()} title="Double-click to open in viewer">
                     <VoiceMessagePlayer 
                       mediaUrl={message.mediaUrl} 
                       senderName={senderName}
@@ -76,28 +76,46 @@ const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName,
                   </div>
                 )}
                 {message.type === 'image' && (
-                  <div className="relative group/image">
-                    <img 
-                      src={message.mediaUrl} 
-                      alt="attachment" 
-                      className="max-w-full sm:max-w-xs md:max-w-sm rounded-md object-cover cursor-pointer" 
-                      onClick={() => window.open(message.mediaUrl)} 
+                  <div
+                    className="relative group/image cursor-pointer"
+                    onClick={() => onImageClick?.()}
+                  >
+                    <img
+                      src={message.mediaUrl}
+                      alt={message.mediaName || 'image'}
+                      className="w-[280px] max-w-full rounded-lg object-cover block"
+                      style={{ maxHeight: '320px' }}
                     />
-                    <a 
-                      href={message.mediaUrl} 
-                      download={message.mediaName || 'image'} 
+                    {/* Download overlay — stops propagation so it doesn't open lightbox */}
+                    <a
+                      href={message.mediaUrl}
+                      download={message.mediaName || 'image'}
                       onClick={(e) => e.stopPropagation()}
                       className="absolute bottom-2 right-2 bg-black/50 text-white p-1.5 rounded-full opacity-0 group-hover/image:opacity-100 transition-opacity hover:bg-black/70 z-10"
                     >
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                         <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
                       </svg>
                     </a>
                   </div>
                 )}
                 {message.type === 'video' && (
-                  <div className="relative group/video">
-                    <video controls src={message.mediaUrl} className="max-w-full sm:max-w-xs md:max-w-sm rounded-md bg-black" />
+                  <div 
+                    className="relative group/video cursor-pointer"
+                    onClick={() => onImageClick?.()}
+                  >
+                    <video 
+                      src={message.mediaUrl} 
+                      className="w-[280px] max-w-full rounded-lg bg-black object-cover block"
+                      style={{ maxHeight: '320px' }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors rounded-lg">
+                      <div className="w-14 h-14 bg-black/50 rounded-full flex items-center justify-center text-white pl-1 shadow-md">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                 )}
                 {message.type === 'document' && (
