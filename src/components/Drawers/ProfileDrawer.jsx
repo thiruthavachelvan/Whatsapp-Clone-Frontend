@@ -58,17 +58,64 @@ const ProfileDrawer = ({ isOpen, onClose, currentUser, onUpdateUser, socket }) =
     }
   };
 
+  const fileInputRef = React.useRef(null);
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image size should be less than 5MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onloadend = async () => {
+      const base64Url = reader.result;
+      setLoading(true);
+      try {
+        const updatedUser = await updateProfile(currentUser._id, { 
+          profilePic: base64Url 
+        });
+        onUpdateUser(updatedUser);
+        if (socket) socket.emit('updateUser', updatedUser);
+      } catch (error) {
+        console.error("Failed to update profile pic", error);
+        alert("Failed to update profile picture");
+      } finally {
+        setLoading(false);
+      }
+    };
+  };
+
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title="Profile">
       <div className="flex flex-col h-full">
         <div className="flex-1 overflow-y-auto custom-scrollbar pb-20">
           {/* Avatar Section */}
           <div className="py-8 flex justify-center bg-[#f0f2f5] dark:bg-[#111b21]">
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/*" 
+              onChange={handleFileChange}
+            />
             <div 
-              className="w-48 h-48 rounded-full flex items-center justify-center text-white text-6xl font-semibold shadow-md relative group cursor-pointer"
+              onClick={handleAvatarClick}
+              className="w-48 h-48 rounded-full flex items-center justify-center text-white text-6xl font-semibold shadow-md relative group cursor-pointer overflow-hidden"
               style={{ backgroundColor: currentUser.avatarColor || '#128C7E' }}
             >
-              {currentUser.avatarLetter || currentUser.username.charAt(0).toUpperCase()}
+              {currentUser.profilePic ? (
+                <img src={currentUser.profilePic} alt={currentUser.username} className="w-full h-full object-cover" />
+              ) : (
+                currentUser.avatarLetter || currentUser.username.charAt(0).toUpperCase()
+              )}
               <div className="absolute inset-0 bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-xs text-center px-4">
                 <span className="uppercase font-bold mb-1">Change Profile Photo</span>
               </div>

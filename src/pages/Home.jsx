@@ -454,6 +454,7 @@ const Home = () => {
               currentUser={currentUser} 
               onLogout={logoutUser}
               selectedChat={selectedChat}
+              loading={loading}
               onSelectChat={(chat) => {
                 setSelectedChat(chat);
                 localStorage.setItem('selectedChatId', chat._id);

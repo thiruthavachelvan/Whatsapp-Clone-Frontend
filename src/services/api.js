@@ -123,4 +123,19 @@ export const votePoll = async (messageId, userId, optionIndex) => {
   return response.data;
 };
 
+export const fetchStatuses = async () => {
+  const response = await api.get('/status');
+  return response.data;
+};
+
+export const uploadStatus = async (statusData) => {
+  const response = await api.post('/status', statusData);
+  return response.data;
+};
+
+export const viewStatus = async (statusId, userId) => {
+  const response = await api.post(`/status/view/${statusId}`, { userId });
+  return response.data;
+};
+
 export default api;
