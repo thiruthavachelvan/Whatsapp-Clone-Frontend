@@ -3,6 +3,31 @@ import { format } from 'date-fns';
 import { Pin, Trash, ChevronDown } from 'lucide-react';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
 
+const renderTextWithLinks = (text) => {
+  if (!text) return null;
+  // Regex to find URLs
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a 
+          key={i} 
+          href={part} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-[#027eb5] dark:text-[#53bdeb] hover:underline break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName, currentUser, onDelete, onPin, onImageClick }) => {
   // Hide if deleted for current user
   if (message.deletedBy?.includes(currentUser?._id)) return null;
@@ -137,7 +162,9 @@ const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName,
                   </div>
                 )}
                 {message.text && (
-                  <span dir="ltr" className="leading-[19px] whitespace-pre-wrap word-break">{message.text}</span>
+                  <span dir="ltr" className="leading-[19px] whitespace-pre-wrap word-break">
+                    {renderTextWithLinks(message.text)}
+                  </span>
                 )}
               </>
             )}
