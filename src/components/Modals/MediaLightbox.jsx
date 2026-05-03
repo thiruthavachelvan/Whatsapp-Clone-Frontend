@@ -13,6 +13,7 @@ import {
   Pause,
   Volume2,
   MoreVertical,
+  Star,
 } from 'lucide-react';
 
 // Helper to format duration (seconds) → "m:ss"
@@ -22,6 +23,103 @@ const formatDuration = (secs) => {
   const s = Math.floor(secs % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
+
+/* ── Sub-components ── */
+
+const ToolbarBtn = ({ title, onClick, children, className = "" }) => (
+  <button
+    title={title}
+    onClick={onClick}
+    className={`p-2 rounded-full hover:bg-white/10 transition-colors ${className}`}
+  >
+    {children}
+  </button>
+);
+
+const NavArrow = ({ direction, onClick, disabled }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`absolute ${direction === 'left' ? 'left-2' : 'right-2'} z-10
+      w-10 h-10 flex items-center justify-center rounded-full
+      bg-black/40 hover:bg-black/60 text-white transition-all duration-150
+      ${disabled ? 'opacity-0 pointer-events-none' : 'opacity-80 hover:opacity-100'}`}
+  >
+    {direction === 'left' ? <ChevronLeft size={26} /> : <ChevronRight size={26} />}
+  </button>
+);
+
+const LightboxAudioPlayer = ({ src }) => {
+  const audioRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateDuration = () => setDuration(audio.duration);
+    const onEnded = () => setIsPlaying(false);
+
+    audio.addEventListener('timeupdate', updateTime);
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('ended', onEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime);
+      audio.removeEventListener('loadedmetadata', updateDuration);
+      audio.removeEventListener('ended', onEnded);
+    };
+  }, [src]);
+
+  const togglePlay = () => {
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleSeek = (e) => {
+    const time = Number(e.target.value);
+    audioRef.current.currentTime = time;
+    setCurrentTime(time);
+  };
+
+  return (
+    <div className="bg-[#e9edef] rounded-full px-4 py-3 flex items-center space-x-4 w-full max-w-lg shadow-lg" onClick={(e) => e.stopPropagation()}>
+      <audio ref={audioRef} src={src} preload="metadata" />
+      
+      <button onClick={togglePlay} className="text-[#111b21] hover:opacity-70 transition-opacity">
+        {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+      </button>
+
+      <div className="text-[#111b21] text-xs font-medium font-mono tracking-tighter whitespace-nowrap">
+        {formatDuration(currentTime)} / {formatDuration(duration || 0)}
+      </div>
+
+      <input 
+        type="range" 
+        min={0} 
+        max={duration || 100} 
+        value={currentTime} 
+        onChange={handleSeek}
+        className="flex-1 h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-[#111b21]"
+      />
+
+      <button className="text-[#111b21] hover:opacity-70 transition-opacity">
+        <Volume2 size={20} />
+      </button>
+      <button className="text-[#111b21] hover:opacity-70 transition-opacity">
+        <MoreVertical size={20} />
+      </button>
+    </div>
+  );
+};
+
 
 const MediaLightbox = ({
   mediaList,       // [{ _id, type, mediaUrl, mediaName, createdAt, senderId }]
@@ -104,13 +202,19 @@ const MediaLightbox = ({
     a.click();
   };
 
+  const handleToggleStarLocal = () => {
+    if (onToggleStar && current) {
+      onToggleStar(current);
+    }
+  };
+
   const handleVideoMeta = (e, url) => {
     setVideoDurations((prev) => ({ ...prev, [url]: e.target.duration }));
   };
 
   return (
     <div
-      className="fixed inset-0 z-[500] flex flex-col bg-[#0b141a]/95 select-none"
+      className="fixed inset-0 z-[1000] flex flex-col bg-[#0b141a] select-none"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* ───────────── HEADER ───────────── */}
@@ -142,6 +246,13 @@ const MediaLightbox = ({
           </ToolbarBtn>
           <ToolbarBtn title="Download" onClick={handleDownload}>
             <Download size={20} />
+          </ToolbarBtn>
+          <ToolbarBtn 
+            title={isStarred ? "Unstar" : "Star"} 
+            onClick={handleToggleStarLocal}
+            className={isStarred ? "text-yellow-400" : ""}
+          >
+            <Star size={20} fill={isStarred ? "currentColor" : "none"} />
           </ToolbarBtn>
           <div className="w-px h-5 bg-white/10 mx-1" />
           <ToolbarBtn title="Close" onClick={onClose}>
@@ -268,100 +379,6 @@ const MediaLightbox = ({
   );
 };
 
-/* ── Sub-components ── */
 
-const ToolbarBtn = ({ title, onClick, children }) => (
-  <button
-    title={title}
-    onClick={onClick}
-    className="p-2 rounded-full hover:bg-white/10 transition-colors"
-  >
-    {children}
-  </button>
-);
-
-const NavArrow = ({ direction, onClick, disabled }) => (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    className={`absolute ${direction === 'left' ? 'left-2' : 'right-2'} z-10
-      w-10 h-10 flex items-center justify-center rounded-full
-      bg-black/40 hover:bg-black/60 text-white transition-all duration-150
-      ${disabled ? 'opacity-0 pointer-events-none' : 'opacity-80 hover:opacity-100'}`}
-  >
-    {direction === 'left' ? <ChevronLeft size={26} /> : <ChevronRight size={26} />}
-  </button>
-);
-
-const LightboxAudioPlayer = ({ src }) => {
-  const audioRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    
-    const updateTime = () => setCurrentTime(audio.currentTime);
-    const updateDuration = () => setDuration(audio.duration);
-    const onEnded = () => setIsPlaying(false);
-
-    audio.addEventListener('timeupdate', updateTime);
-    audio.addEventListener('loadedmetadata', updateDuration);
-    audio.addEventListener('ended', onEnded);
-
-    return () => {
-      audio.removeEventListener('timeupdate', updateTime);
-      audio.removeEventListener('loadedmetadata', updateDuration);
-      audio.removeEventListener('ended', onEnded);
-    };
-  }, [src]);
-
-  const togglePlay = () => {
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-    setIsPlaying(!isPlaying);
-  };
-
-  const handleSeek = (e) => {
-    const time = Number(e.target.value);
-    audioRef.current.currentTime = time;
-    setCurrentTime(time);
-  };
-
-  return (
-    <div className="bg-[#e9edef] rounded-full px-4 py-3 flex items-center space-x-4 w-full max-w-lg shadow-lg" onClick={(e) => e.stopPropagation()}>
-      <audio ref={audioRef} src={src} preload="metadata" />
-      
-      <button onClick={togglePlay} className="text-[#111b21] hover:opacity-70 transition-opacity">
-        {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-      </button>
-
-      <div className="text-[#111b21] text-xs font-medium font-mono tracking-tighter whitespace-nowrap">
-        {formatDuration(currentTime)} / {formatDuration(duration || 0)}
-      </div>
-
-      <input 
-        type="range" 
-        min={0} 
-        max={duration || 100} 
-        value={currentTime} 
-        onChange={handleSeek}
-        className="flex-1 h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-[#111b21]"
-      />
-
-      <button className="text-[#111b21] hover:opacity-70 transition-opacity">
-        <Volume2 size={20} />
-      </button>
-      <button className="text-[#111b21] hover:opacity-70 transition-opacity">
-        <MoreVertical size={20} />
-      </button>
-    </div>
-  );
-};
 
 export default MediaLightbox;

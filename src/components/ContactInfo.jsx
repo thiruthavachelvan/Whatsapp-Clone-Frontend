@@ -19,8 +19,11 @@ import {
   FileText
 } from 'lucide-react';
 import { format } from 'date-fns';
+import ContactMediaGallery from './ContactMediaGallery';
+import ContactStarredMessages from './ContactStarredMessages';
 
-const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, onBlockUser, onReportUser, onMuteChat, onOpenSearch, onSelectMessages, messages = [] }) => {
+const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, onBlockUser, onReportUser, onMuteChat, onOpenSearch, onSelectMessages, onToggleStar, onMediaClick, messages = [] }) => {
+  const [subView, setSubView] = useState('main'); // 'main', 'media', 'starred'
   const [showMuteModal, setShowMuteModal] = useState(false);
   const isGroup = chat.type === 'group';
 
@@ -37,6 +40,21 @@ const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, on
   // Include all non-text types for the Media, Links, and Docs gallery
   const mediaMessages = messages.filter(m => m.type === 'image' || m.type === 'video' || m.type === 'audio' || m.type === 'document');
   const mediaCount = mediaMessages.length;
+
+  if (subView === 'media') {
+    return <ContactMediaGallery messages={messages} currentUser={currentUser} onClose={() => setSubView('main')} onMediaClick={onMediaClick} onToggleStar={onToggleStar} />;
+  }
+
+  if (subView === 'starred') {
+    return (
+      <ContactStarredMessages 
+        messages={messages} 
+        currentUser={currentUser} 
+        onClose={() => setSubView('main')} 
+        onToggleStar={onToggleStar}
+      />
+    );
+  }
 
   return (
     <div className="w-full md:w-[350px] lg:w-[400px] h-full bg-white dark:bg-[#111b21] border-l border-gray-200 dark:border-white/5 flex flex-col z-20 animate-slide-in-right relative">
@@ -166,7 +184,10 @@ const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, on
         </div>
 
         {/* Media, links and docs */}
-        <div className="bg-white dark:bg-[#111b21] px-6 py-4 mb-2 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-[#182229] transition-colors">
+        <div 
+          onClick={() => setSubView('media')}
+          className="bg-white dark:bg-[#111b21] px-6 py-4 mb-2 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-[#182229] transition-colors"
+        >
           <div className="flex justify-between items-center mb-3">
             <span className="text-sm text-[#8696a0]">Media, links and docs</span>
             <div className="flex items-center text-[#8696a0]">
@@ -177,7 +198,7 @@ const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, on
           {mediaCount > 0 ? (
             <div className="flex space-x-2 overflow-x-hidden">
                {mediaMessages.slice(0, 3).map((m, i) => (
-                 <div key={i} className="w-[72px] h-[72px] sm:w-[86px] sm:h-[86px] bg-gray-200 dark:bg-[#202c33] rounded-md overflow-hidden relative cursor-pointer hover:opacity-90" onClick={() => window.open(m.mediaUrl)}>
+                 <div key={i} className="w-[72px] h-[72px] sm:w-[86px] sm:h-[86px] bg-gray-200 dark:bg-[#202c33] rounded-md overflow-hidden relative cursor-pointer hover:opacity-90" onClick={(e) => { e.stopPropagation(); onMediaClick(m); }}>
                    {m.type === 'image' ? (
                      <img src={m.mediaUrl} alt="media" className="w-full h-full object-cover" />
                    ) : m.type === 'video' ? (
@@ -208,7 +229,10 @@ const ContactInfo = ({ chat, currentUser, onClose, onClearChat, onDeleteChat, on
 
         {/* Settings List */}
         <div className="bg-white dark:bg-[#111b21] mb-2 shadow-sm">
-          <div className="flex items-center px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#182229] transition-colors">
+          <div 
+            onClick={() => setSubView('starred')}
+            className="flex items-center px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#182229] transition-colors"
+          >
             <Star size={20} className="text-[#8696a0] mr-6" />
             <span className="flex-1 text-gray-900 dark:text-[#e9edef]">Starred messages</span>
             <ChevronRight size={18} className="text-[#8696a0]" />

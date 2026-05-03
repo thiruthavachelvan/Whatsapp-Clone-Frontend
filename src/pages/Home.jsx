@@ -21,6 +21,7 @@ import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
 import ContactInfo from '../components/ContactInfo';
 import SearchInChatDrawer from '../components/Drawers/SearchInChatDrawer';
+import MediaLightbox from '../components/Modals/MediaLightbox';
 
 const Home = () => {
   const { currentUser, logoutUser, updateUser } = useContext(AuthContext);
@@ -34,6 +35,7 @@ const Home = () => {
   const [showSearchInChat, setShowSearchInChat] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const [forceSelectionMode, setForceSelectionMode] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
   
   const socketRef = useRef();
   const selectedChatRef = useRef(null);
@@ -491,6 +493,8 @@ const Home = () => {
                 groups={groups}
                 highlightedMessageId={highlightedMessageId}
                 forceSelectionMode={forceSelectionMode}
+                lightboxIndex={lightboxIndex}
+                setLightboxIndex={setLightboxIndex}
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-center p-4 bg-[#f0f2f5] dark:bg-[#222d34] border-b-[6px] border-whatsapp-green">
@@ -527,6 +531,12 @@ const Home = () => {
                 setShowContactInfo(false);
                 setShowSearchInChat(true);
               }}
+              onToggleStar={handleToggleStar}
+              onMediaClick={(msg) => {
+                const mediaMsgs = messages.filter(m => m.type === 'image' || m.type === 'video' || m.type === 'audio');
+                const idx = mediaMsgs.findIndex(m => m._id === msg._id);
+                if (idx !== -1) setLightboxIndex(idx);
+              }}
             />
           )}
 
@@ -538,6 +548,18 @@ const Home = () => {
               chat={selectedChat}
               currentUser={currentUser}
               onSelectMessage={handleSelectMessage}
+            />
+          )}
+
+
+          {/* Media Lightbox */}
+          {lightboxIndex !== null && (
+            <MediaLightbox 
+              mediaList={messages.filter(m => m.type === 'image' || m.type === 'video' || m.type === 'audio')}
+              initialIndex={lightboxIndex}
+              currentUser={currentUser}
+              onClose={() => setLightboxIndex(null)}
+              onToggleStar={handleToggleStar}
             />
           )}
 

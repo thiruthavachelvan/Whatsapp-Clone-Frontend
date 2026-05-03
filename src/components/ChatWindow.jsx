@@ -37,7 +37,6 @@ import EmojiPicker from 'emoji-picker-react';
 import MessageBubble from './MessageBubble';
 import ForwardMessageModal from './Modals/ForwardMessageModal';
 import MediaPreviewModal from './Modals/MediaPreviewModal';
-import MediaLightbox from './Modals/MediaLightbox';
 
 const ChatWindow = ({ 
   currentUser, 
@@ -60,7 +59,9 @@ const ChatWindow = ({
   users,
   groups,
   highlightedMessageId,
-  forceSelectionMode
+  forceSelectionMode,
+  lightboxIndex,
+  setLightboxIndex
 }) => {
   const [inputText, setInputText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
@@ -77,7 +78,6 @@ const ChatWindow = ({
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [selectedAttachmentType, setSelectedAttachmentType] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
-  const [lightboxIndex, setLightboxIndex] = useState(null);
   
   // Audio recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -234,8 +234,6 @@ const ChatWindow = ({
 
   const isGroup = selectedChat.type === 'group';
 
-  // All image/video/audio messages for the lightbox filmstrip
-  const mediaMessages = messages.filter(m => m.type === 'image' || m.type === 'video' || m.type === 'audio');
 
   return (
     <div className="flex flex-col h-full bg-[#efeae2] dark:bg-[#0b141a] relative w-full transition-colors duration-300">
@@ -751,17 +749,6 @@ const ChatWindow = ({
             setSelectionMode(false);
             setSelectedIds([]);
           }}
-        />
-      )}
-
-      {/* Media Lightbox */}
-      {lightboxIndex !== null && mediaMessages.length > 0 && (
-        <MediaLightbox
-          mediaList={mediaMessages}
-          initialIndex={lightboxIndex}
-          currentUser={currentUser}
-          onClose={() => setLightboxIndex(null)}
-          onToggleStar={onToggleStar}
         />
       )}
     </div>
