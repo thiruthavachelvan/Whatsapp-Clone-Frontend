@@ -118,4 +118,9 @@ export const pinMessage = async (messageId, userId, duration) => {
   return response.data;
 };
 
+export const votePoll = async (messageId, userId, optionIndex) => {
+  const response = await api.put(`/messages/poll/vote/${messageId}`, { userId, optionIndex });
+  return response.data;
+};
+
 export default api;

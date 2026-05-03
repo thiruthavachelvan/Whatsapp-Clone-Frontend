@@ -28,7 +28,7 @@ const renderTextWithLinks = (text) => {
   });
 };
 
-const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName, currentUser, onDelete, onPin, onImageClick }) => {
+const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName, currentUser, onDelete, onPin, onVote, onImageClick }) => {
   // Hide if deleted for current user
   if (message.deletedBy?.includes(currentUser?._id)) return null;
 
@@ -161,7 +161,60 @@ const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName,
                     </a>
                   </div>
                 )}
-                {message.text && (
+                {message.type === 'poll' && message.poll && (
+                  <div className="mb-1 w-full min-w-[240px] max-w-[300px] flex flex-col space-y-3 py-1">
+                    <h3 className="font-semibold text-[15px] text-gray-800 dark:text-[#e9edef] leading-tight px-1">
+                      {message.poll.question}
+                    </h3>
+                    <div className="space-y-2">
+                      {message.poll.options?.map((opt, idx) => {
+                        const totalVotes = message.poll.options.reduce((sum, o) => sum + (o.votes?.length || 0), 0);
+                        const voteCount = opt.votes?.length || 0;
+                        const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
+                        const hasVoted = opt.votes?.includes(currentUser?._id);
+
+                        return (
+                          <div 
+                            key={idx} 
+                            className="relative cursor-pointer group/opt"
+                            onClick={() => onVote?.(message._id, idx)}
+                          >
+                            {/* Progress bar background */}
+                            <div className="absolute inset-0 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-500 rounded-full ${hasVoted ? 'bg-whatsapp-teal/30 dark:bg-whatsapp-teal/40' : 'bg-gray-300 dark:bg-gray-600/50'}`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                            {/* Content */}
+                            <div className="relative flex items-center justify-between px-3 py-1.5 min-h-[36px]">
+                              <div className="flex items-center space-x-2 min-w-0">
+                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${hasVoted ? 'bg-whatsapp-teal border-whatsapp-teal' : 'border-gray-400 dark:border-gray-500'}`}>
+                                  {hasVoted && (
+                                    <svg viewBox="0 0 24 24" width="12" height="12" fill="white">
+                                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <span className={`text-[13.5px] truncate ${hasVoted ? 'font-medium' : ''}`}>
+                                  {opt.text}
+                                </span>
+                              </div>
+                              <span className="text-[11px] font-medium text-gray-500 dark:text-[#8696a0] ml-2 flex-shrink-0">
+                                {voteCount > 0 && voteCount}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="text-[11px] text-[#8696a0] px-1 pt-1 flex justify-between items-center border-t border-black/5 dark:border-white/5 mt-1">
+                      <span>{message.poll.options.reduce((sum, o) => sum + (o.votes?.length || 0), 0)} votes</span>
+                      <button className="text-whatsapp-teal hover:underline font-medium">View votes</button>
+                    </div>
+                  </div>
+                )}
+                {message.text && message.type !== 'poll' && (
                   <span dir="ltr" className="leading-[19px] whitespace-pre-wrap word-break">
                     {renderTextWithLinks(message.text)}
                   </span>

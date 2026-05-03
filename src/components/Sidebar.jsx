@@ -67,6 +67,10 @@ const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedCh
         isOpen={activeDrawer === 'starred'} 
         onClose={() => setActiveDrawer(null)} 
         currentUser={currentUser}
+        onSelectChat={onSelectChat}
+        onSelectMessage={onSelectMessage}
+        users={users}
+        groups={groups}
       />
       <NewGroupDrawer 
         isOpen={activeDrawer === 'new-group'} 

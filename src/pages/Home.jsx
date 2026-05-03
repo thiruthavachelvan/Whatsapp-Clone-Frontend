@@ -15,7 +15,8 @@ import {
   searchMessages,
   searchInChat,
   deleteMessage as deleteApiMessage,
-  pinMessage as pinApiMessage
+  pinMessage as pinApiMessage,
+  votePoll as voteApiPoll
 } from '../services/api';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
@@ -141,6 +142,10 @@ const Home = () => {
       if (selectedChatRef.current && selectedChatRef.current._id === updatedUser._id) {
         setSelectedChat(prev => ({ ...prev, ...updatedUser }));
       }
+    });
+
+    socketRef.current.on('voteUpdate', ({ messageId, poll }) => {
+      setMessages(prev => prev.map(m => m._id === messageId ? { ...m, poll } : m));
     });
 
     return () => {
@@ -423,6 +428,15 @@ const Home = () => {
     }
   };
 
+  const handleVote = async (messageId, optionIndex) => {
+    try {
+      const data = await voteApiPoll(messageId, currentUser._id, optionIndex);
+      setMessages(prev => prev.map(m => m._id === messageId ? { ...m, poll: data.poll } : m));
+    } catch (error) {
+      console.error("Vote error:", error);
+    }
+  };
+
   return (
     <div className="h-screen w-full bg-whatsapp-gray dark:bg-[#0b141a] flex overflow-hidden transition-colors duration-300">
       {/* Desktop Layout Background ... */}
@@ -489,6 +503,7 @@ const Home = () => {
                 onDeleteMessage={handleDeleteMessage}
                 onPinMessage={handlePinMessage}
                 onUnpinMessage={handleUnpinMessage}
+                onVote={handleVote}
                 users={users}
                 groups={groups}
                 highlightedMessageId={highlightedMessageId}

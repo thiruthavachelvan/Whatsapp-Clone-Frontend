@@ -37,6 +37,7 @@ import EmojiPicker from 'emoji-picker-react';
 import MessageBubble from './MessageBubble';
 import ForwardMessageModal from './Modals/ForwardMessageModal';
 import MediaPreviewModal from './Modals/MediaPreviewModal';
+import CreatePollModal from './Modals/CreatePollModal';
 
 const ChatWindow = ({ 
   currentUser, 
@@ -56,6 +57,7 @@ const ChatWindow = ({
   onDeleteMessage,
   onPinMessage,
   onUnpinMessage,
+  onVote,
   users,
   groups,
   highlightedMessageId,
@@ -78,6 +80,7 @@ const ChatWindow = ({
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [selectedAttachmentType, setSelectedAttachmentType] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
+  const [showPollModal, setShowPollModal] = useState(false);
   
   // Audio recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -185,11 +188,31 @@ const ChatWindow = ({
   };
 
   // --- Attachment Logic ---
-  const handleAttachmentClick = (type) => {
+  const openFilePicker = (type, accept) => {
     setSelectedAttachmentType(type);
-    fileInputRef.current?.click();
+    if (fileInputRef.current) {
+      fileInputRef.current.accept = accept;
+      fileInputRef.current.click();
+    }
     setShowAttachmentMenu(false);
   };
+
+  const handleCreatePoll = (pollData) => {
+    onSendMessage('', null, { type: 'poll', poll: pollData });
+    setShowPollModal(false);
+  };
+
+  const AttachmentItem = ({ icon, label, onClick }) => (
+    <button 
+      onClick={onClick} 
+      className="flex items-center space-x-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-[#1f2c33] w-full text-left transition-colors"
+    >
+      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-[#202c33] flex items-center justify-center">
+        {icon}
+      </div>
+      <span className="text-gray-700 dark:text-[#d1d7db]">{label}</span>
+    </button>
+  );
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -475,8 +498,10 @@ const ChatWindow = ({
                         currentUser={currentUser}
                         onDelete={() => setShowDeleteModal(message._id)}
                         onPin={() => setShowPinModal(message._id)}
+                        onVote={onVote}
                         onImageClick={['image', 'video', 'audio'].includes(message.type) ? () => {
-                          const idx = mediaMessages.findIndex(m => m._id === message._id);
+                          const mediaMsgs = messages.filter(m => ['image', 'video', 'audio'].includes(m.type));
+                          const idx = mediaMsgs.findIndex(m => m._id === message._id);
                           if (idx !== -1) setLightboxIndex(idx);
                         } : undefined}
                       />
@@ -507,28 +532,36 @@ const ChatWindow = ({
 
           {/* Attachment Menu Popup */}
           {showAttachmentMenu && (
-             <div className="absolute bottom-[70px] left-14 z-50 bg-white dark:bg-[#233138] rounded-xl shadow-xl py-3 w-56 animate-in slide-in-bottom duration-200">
-               {[
-                 { icon: FileText, color: 'text-indigo-500', label: 'Document' },
-                 { icon: ImageIcon, color: 'text-blue-500', label: 'Photos & videos' },
-                 { icon: Camera, color: 'text-pink-500', label: 'Camera' },
-                 { icon: Headphones, color: 'text-orange-500', label: 'Audio' },
-                 { icon: User, color: 'text-blue-400', label: 'Contact' },
-                 { icon: BarChart2, color: 'text-emerald-500', label: 'Poll' },
-                 { icon: Calendar, color: 'text-teal-500', label: 'Event' },
-                 { icon: Sticker, color: 'text-cyan-500', label: 'New sticker' },
-               ].map((item, index) => (
-                 <div 
-                   key={index} 
-                   onClick={() => handleAttachmentClick(item.label)}
-                   className="flex items-center px-4 py-2 hover:bg-[#f5f6f6] dark:hover:bg-[#182229] cursor-pointer"
-                 >
-                   <item.icon size={20} className={`${item.color} mr-4`} />
-                   <span className="text-gray-700 dark:text-[#d1d7db] text-sm">{item.label}</span>
-                 </div>
-               ))}
-             </div>
-          )}
+        <div className="absolute left-4 bottom-20 bg-white dark:bg-[#233138] rounded-xl shadow-2xl py-1 w-52 z-[60] animate-in slide-in-from-bottom-4 duration-200 border border-gray-100 dark:border-white/5">
+          <AttachmentItem 
+            icon={<FileText size={20} className="text-[#7f66ff]" />} 
+            label="Document" 
+            onClick={() => openFilePicker('Document', '*/*')} 
+          />
+          <AttachmentItem 
+            icon={<ImageIcon size={20} className="text-[#007bfc]" />} 
+            label="Photos & videos" 
+            onClick={() => openFilePicker('Image', 'image/*,video/*')} 
+          />
+          <AttachmentItem 
+            icon={<Headphones size={20} className="text-[#ff8f00]" />} 
+            label="Audio" 
+            onClick={() => openFilePicker('Audio', 'audio/*')} 
+          />
+          <AttachmentItem 
+            icon={<BarChart2 size={20} className="text-[#ffbc38]" />} 
+            label="Poll" 
+            onClick={() => { setShowPollModal(true); setShowAttachmentMenu(false); }} 
+          />
+        </div>
+      )}
+
+      {showPollModal && (
+        <CreatePollModal 
+          onClose={() => setShowPollModal(false)} 
+          onCreate={handleCreatePoll} 
+        />
+      )}
 
           <input 
             type="file" 
