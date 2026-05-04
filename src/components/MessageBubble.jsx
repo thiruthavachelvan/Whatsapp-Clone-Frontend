@@ -248,7 +248,7 @@ const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName,
                   </div>
                 ) : (
                   <div className="text-[#aebac1] flex">
-                    <svg viewBox="0 0 16 15" width="12" height="15" className="fill-current">
+                    <svg viewBox="0 0 16 15" width="16" height="15" className="fill-current">
                       <path d="M10.91 3.316l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L0.491 6.418a.365.365 0 0 0-.51.063l-.478.372a.366.366 0 0 0-.064.512l3.456 4.186a.32.32 0 0 0 .484.034l6.272-8.048a.365.365 0 0 0-.064-.512z" />
                     </svg>
                   </div>

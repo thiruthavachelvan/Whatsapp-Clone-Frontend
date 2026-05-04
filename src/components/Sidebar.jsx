@@ -84,6 +84,7 @@ const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedCh
         isOpen={activeDrawer === 'settings'} 
         onClose={() => setActiveDrawer(null)} 
         currentUser={currentUser}
+        onOpenProfile={() => setActiveDrawer('profile')}
       />
 
       {/* Header ... */}

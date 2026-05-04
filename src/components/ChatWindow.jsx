@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Search, 
   MoreVertical, 
@@ -11,9 +11,7 @@ import {
   BellOff, 
   Info, 
   CheckSquare, 
-  Clock, 
-  Heart, 
-  List, 
+  Pin,
   Star,
   X as CloseIcon, 
   ThumbsDown, 
@@ -23,15 +21,11 @@ import {
   ChevronDown,
   FileText,
   Image as ImageIcon,
-  Camera,
   Headphones,
-  User,
   BarChart2,
-  Calendar,
-  Sticker,
-  Play,
-  Square,
-  Plus
+  Plus,
+  Clipboard,
+  Share2
 } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import MessageBubble from './MessageBubble';
@@ -92,6 +86,8 @@ const ChatWindow = ({
   
   const messagesEndRef = useRef(null);
   const messageRefs = useRef({});
+  const prevChatIdRef = useRef(null);
+  const prevMessageCountRef = useRef(0);
 
   // Get currently pinned message
   const pinnedMessage = messages.find(m => m.pinnedBy && new Date(m.pinExpiry) > new Date());
@@ -102,19 +98,27 @@ const ChatWindow = ({
     }
   }, [forceSelectionMode]);
 
-  const scrollToBottom = () => {
-    if (!highlightedMessageId) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
   useEffect(() => {
     if (highlightedMessageId && messageRefs.current[highlightedMessageId]) {
+      // Scroll to highlighted (searched) message
       messageRefs.current[highlightedMessageId].scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      scrollToBottom();
+      return;
     }
-  }, [messages, highlightedMessageId]);
+
+    const chatSwitched = prevChatIdRef.current !== selectedChat?._id;
+    const newMessageArrived = !chatSwitched && messages.length > prevMessageCountRef.current;
+
+    if (chatSwitched) {
+      // INSTANT jump to bottom when switching chats — no animation through 200 messages
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+    } else if (newMessageArrived) {
+      // SMOOTH scroll only when a new message arrives in the current chat
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    prevChatIdRef.current = selectedChat?._id;
+    prevMessageCountRef.current = messages.length;
+  }, [messages, highlightedMessageId, selectedChat?._id]);
 
   const handleSubmit = (e) => {
     e?.preventDefault();
@@ -275,10 +279,16 @@ const ChatWindow = ({
             className="relative flex-shrink-0 cursor-pointer"
           >
             <div 
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold overflow-hidden"
               style={{ backgroundColor: selectedChat.avatarColor || (isGroup ? '#00a884' : '#9ca3af') }}
             >
-              {isGroup ? <Users size={20} /> : (selectedChat.avatarLetter || selectedChat.username.charAt(0).toUpperCase())}
+              {selectedChat.profilePic ? (
+                <img src={selectedChat.profilePic} className="w-full h-full object-cover" alt="" />
+              ) : isGroup ? (
+                <Users size={20} />
+              ) : (
+                selectedChat.avatarLetter || selectedChat.username.charAt(0).toUpperCase()
+              )}
             </div>
           </div>
           
@@ -668,7 +678,7 @@ const ChatWindow = ({
               navigator.clipboard.writeText(text);
               setSelectionMode(false);
               setSelectedIds([]);
-            }}><List size={22} /></button>
+            }}><Clipboard size={22} /></button>
             <button title="Star" onClick={() => {
               selectedIds.forEach(id => onToggleStar(id));
               setSelectionMode(false);
@@ -676,9 +686,9 @@ const ChatWindow = ({
             }}><Star size={22} /></button>
             <button title="Delete" onClick={() => setShowDeleteModal('bulk')}><Trash size={22} /></button>
             <button title="Forward" onClick={() => { if(selectedIds.length > 0) setShowForwardModal(true); }} className={`${selectedIds.length === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}>
-              <Send size={22} className="rotate-[-45deg] translate-y-1" />
+              <Share2 size={22} />
             </button>
-            <button title="Pin" onClick={() => { if(selectedIds.length === 1) setShowPinModal(selectedIds[0]); }} className={`${selectedIds.length !== 1 ? 'opacity-30 cursor-not-allowed' : ''}`}><Clock size={22} /></button>
+            <button title="Pin" onClick={() => { if(selectedIds.length === 1) setShowPinModal(selectedIds[0]); }} className={`${selectedIds.length !== 1 ? 'opacity-30 cursor-not-allowed' : ''}`}><Pin size={22} /></button>
           </div>
         </div>
       )}
