@@ -456,7 +456,10 @@ const ChatWindow = ({
             {messages.length === 0 ? (
               <div className="flex justify-center my-4">
                 <div className="bg-[#ffeecd] dark:bg-[#182229] px-4 py-2 rounded-lg text-xs text-gray-600 dark:text-[#8696a0] shadow-sm text-center max-w-[90%] border-b border-yellow-200 dark:border-none">
-                  <span className="block mb-1">🔒 Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp Clone, can read or listen to them.</span>
+                  <p className="text-[11px] text-gray-500 dark:text-[#8696a0] leading-relaxed text-center">
+                    <span className="block mb-1">🛡️ Your messages are private to this conversation. This is a clone project for demonstration purposes.</span>
+                    <span className="block">Click to learn more about our privacy commitment.</span>
+                  </p>
                 </div>
               </div>
             ) : (

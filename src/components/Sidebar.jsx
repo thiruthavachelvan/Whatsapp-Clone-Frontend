@@ -11,8 +11,7 @@ import NewGroupDrawer from './Drawers/NewGroupDrawer';
 import SettingsDrawer from './Drawers/SettingsDrawer';
 import StatusTab from './Status/StatusTab';
 
-const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedChat, onSelectChat, onGroupCreated, socket, onSelectMessage, loading }) => {
-  const [activeTab, setActiveTab] = useState('chats'); // 'chats' or 'status'
+const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedChat, onSelectChat, onGroupCreated, socket, onSelectMessage, loading, activeTab, onTabChange }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeDrawer, setActiveDrawer] = useState(null); // 'profile', 'new-chat', 'starred', 'new-group', 'settings', or null
   const [showMenu, setShowMenu] = useState(false);
@@ -325,14 +324,14 @@ const Sidebar = ({ users, groups, activeUsers, currentUser, onLogout, selectedCh
       {/* Tab Switcher Navigation */}
       <div className="h-14 bg-white dark:bg-[#202c33] border-t border-gray-200 dark:border-white/5 flex items-center justify-around flex-shrink-0">
         <button 
-          onClick={() => setActiveTab('chats')}
+          onClick={() => onTabChange('chats')}
           className={`flex flex-col items-center justify-center space-y-1 flex-1 h-full transition-colors ${activeTab === 'chats' ? 'text-whatsapp-teal' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-[#2a3942]'}`}
         >
           <MessageSquare size={20} />
           <span className="text-[10px] font-medium">Chats</span>
         </button>
         <button 
-          onClick={() => setActiveTab('status')}
+          onClick={() => onTabChange('status')}
           className={`flex flex-col items-center justify-center space-y-1 flex-1 h-full transition-colors ${activeTab === 'status' ? 'text-whatsapp-teal' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-[#2a3942]'}`}
         >
           <div className="relative">

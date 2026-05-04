@@ -173,11 +173,16 @@ const MessageBubble = ({ message, isOwn, showTail, onToggleStar, showSenderName,
                         const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
                         const hasVoted = opt.votes?.includes(currentUser?._id);
 
+                        // Temp messages haven't been persisted yet — block voting until real ID exists
+                        const isTempMessage = message._id?.startsWith?.('temp_');
                         return (
                           <div 
                             key={idx} 
-                            className="relative cursor-pointer group/opt"
-                            onClick={() => onVote?.(message._id, idx)}
+                            className={`relative group/opt ${isTempMessage ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`}
+                            onClick={() => {
+                              if (isTempMessage) return; // silently block — message still saving
+                              onVote?.(message._id, idx);
+                            }}
                           >
                             {/* Progress bar background */}
                             <div className="absolute inset-0 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">

@@ -26,6 +26,7 @@ import MediaLightbox from '../components/Modals/MediaLightbox';
 
 const Home = () => {
   const { currentUser, logoutUser, updateUser } = useContext(AuthContext);
+  const [activeTab, setActiveTab] = useState('chats');
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [activeUsers, setActiveUsers] = useState([]);
@@ -159,10 +160,22 @@ const Home = () => {
       if (!currentUser) return;
       setLoading(true);
       try {
-        const [usersData, groupsData] = await Promise.all([
+        // Use allSettled so a failure in one doesn't block the other
+        const [usersResult, groupsResult] = await Promise.allSettled([
           fetchUsers(currentUser._id),
           fetchUserGroups(currentUser._id)
         ]);
+
+        const usersData = usersResult.status === 'fulfilled' ? usersResult.value : [];
+        const groupsData = groupsResult.status === 'fulfilled' ? groupsResult.value : [];
+
+        if (usersResult.status === 'rejected') {
+          console.error("Failed to load users:", usersResult.reason);
+        }
+        if (groupsResult.status === 'rejected') {
+          console.error("Failed to load groups:", groupsResult.reason);
+        }
+
         setUsers(usersData);
         setGroups(groupsData);
 
@@ -226,6 +239,7 @@ const Home = () => {
     if (!chat) return;
 
     const isGroup = chat.type === 'group';
+    const tempId = `temp_${Date.now()}`; // Temp ID for optimistic message
     const messageData = {
       senderId: currentUser._id,
       text: text ? text.trim() : '',
@@ -233,34 +247,52 @@ const Home = () => {
       ...(mediaData || { type: 'text' })
     };
 
-    try {
-      // 1. Optimistically add message to UI (only if forwarding to active chat)
-      const tempMessage = { 
-        ...messageData, 
-        isRead: false,
-        isStarred: false,
-        createdAt: new Date().toISOString() 
-      };
-      if (!targetChat) {
-        setMessages((prev) => [...prev, tempMessage]);
+    // 1. Optimistically add message to UI immediately
+    const tempMessage = { 
+      ...messageData, 
+      _id: tempId,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      senderId: {
+        _id: currentUser._id,
+        username: currentUser.username,
+        avatarColor: currentUser.avatarColor,
+        avatarLetter: currentUser.avatarLetter
       }
+    };
+    if (!targetChat) {
+      setMessages((prev) => [...prev, tempMessage]);
+    }
 
-      // 2. Save to db
+    // 2. CRITICAL OPTIMIZATION: Emit socket IMMEDIATELY — don't wait for DB.
+    // The receiver sees the message in ~50ms (WebSocket latency) instead of 2-10s.
+    // The API call runs in parallel to persist to DB.
+    socketRef.current.emit('sendMessage', {
+      ...messageData,
+      _id: tempId,
+      createdAt: tempMessage.createdAt,
+      senderInfo: {
+        username: currentUser.username,
+        avatarColor: currentUser.avatarColor,
+        avatarLetter: currentUser.avatarLetter
+      }
+    });
+
+    try {
+      // 3. Save to DB in background (receiver already saw the message)
       const savedMessage = await sendApiMessage(messageData);
       
       // If sending a message to someone not in our current users list
       if (!isGroup && !users.some(u => u._id === chat._id)) {
-        const updatedUsers = await fetchUsers(currentUser._id);
-        setUsers(updatedUsers);
+        fetchUsers(currentUser._id).then(setUsers); // Non-blocking
       }
       
-      // 3. Update message in state (only for current chat)
+      // 4. Replace temp message with persisted one (updates _id, timestamp from server)
       if (!targetChat) {
         setMessages((prev) => prev.map(m => 
-          (m.text === tempMessage.text && !m._id) ? { 
+          m._id === tempId ? { 
             ...savedMessage, 
-            isRead: false, 
-            isStarred: false,
+            isRead: false,
             senderId: {
               _id: currentUser._id,
               username: currentUser.username,
@@ -270,20 +302,12 @@ const Home = () => {
           } : m
         ));
       }
-
-      // 4. Emit socket event
-      socketRef.current.emit('sendMessage', {
-        ...messageData,
-        _id: savedMessage._id,
-        createdAt: savedMessage.createdAt,
-        senderInfo: {
-          username: currentUser.username,
-          avatarColor: currentUser.avatarColor,
-          avatarLetter: currentUser.avatarLetter
-        }
-      });
     } catch (error) {
       console.error("Failed to send message", error);
+      // Remove temp message on failure
+      if (!targetChat) {
+        setMessages((prev) => prev.filter(m => m._id !== tempId));
+      }
     }
   };
 
@@ -455,6 +479,15 @@ const Home = () => {
               onLogout={logoutUser}
               selectedChat={selectedChat}
               loading={loading}
+              activeTab={activeTab}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                if (tab === 'status') {
+                  setSelectedChat(null);
+                  localStorage.removeItem('selectedChatId');
+                  localStorage.removeItem('selectedChatType');
+                }
+              }}
               onSelectChat={(chat) => {
                 setSelectedChat(chat);
                 localStorage.setItem('selectedChatId', chat._id);
@@ -521,7 +554,7 @@ const Home = () => {
                   Select a chat from the sidebar to start messaging.
                 </p>
                 <div className="mt-8 flex items-center justify-center text-gray-400 dark:text-[#8696a0] text-sm">
-                  <span className="mr-2">🔒</span> End-to-end encrypted clone project
+                  <span className="mr-2">🛡️</span> Privacy-focused messaging clone
                 </div>
               </div>
             )}
